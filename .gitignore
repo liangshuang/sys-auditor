@@ -1,6 +1,10 @@
 *.o
 *.out
-*.ko
-
+# Kernel module build output
 log.txt
 modules.order
+.tmp_versions/
+Module.symvers
+*.ko
+*.cmd
+*.mod.c

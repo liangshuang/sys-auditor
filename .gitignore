@@ -1,0 +1,6 @@
+*.o
+*.out
+*.ko
+
+log.txt
+modules.order

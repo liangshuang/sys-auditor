@@ -25,19 +25,47 @@
 #include <linux/version.h>
 #include <linux/workqueue.h>
 
+#include <linux/time.h>
 
 asmlinkage ssize_t (*orig_read)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_write)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_open)(const char *pathname, int flags);
 asmlinkage ssize_t (*orig_close)(int fd);
 
+struct time_m{
+    int hour;
+    int min;
+    int sec;
+};
+
+struct time_m get_time()
+{
+    unsigned long get_time;
+    int sec, hr, min, tmp1,tmp2;
+    struct timeval tv;
+    struct time_m mytime;
+
+    do_gettimeofday(&tv);
+    get_time = tv.tv_sec;
+    sec = get_time % 60;
+    tmp1 = get_time / 60;
+    min = tmp1 % 60;
+    tmp2 = tmp1 / 60;
+    hr = tmp2 % 24;
+    mytime.hour = hr;
+    mytime.min = min;
+    mytime.sec = sec;
+    return mytime;
+}
 //------------------------------------------------------------------------------
 // Hooked write for logger
 //------------------------------------------------------------------------------
 asmlinkage ssize_t 
 logger_write(int fd, char *buf, size_t count)
 {
-    printk(KERN_INFO "Logger_write: %s\n", buf);
+    struct time_m mytime = get_time();
+    printk(KERN_INFO "%d:%d:%d\tlogger_write: %s\n", mytime.hour, \
+            mytime.min, mytime.sec, buf);
     return orig_write(fd, buf, count);
 }
 

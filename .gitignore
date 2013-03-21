@@ -8,3 +8,5 @@ Module.symvers
 *.ko
 *.cmd
 *.mod.c
+# Temporary files
+*.swp

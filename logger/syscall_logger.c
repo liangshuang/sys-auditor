@@ -21,7 +21,6 @@
 #include <linux/syscalls.h>
 #include <linux/tcp.h>
 #include <linux/types.h>
-#include <linux/unistd.h>
 #include <linux/version.h>
 #include <linux/workqueue.h>
 
@@ -40,19 +39,21 @@ struct time_m{
 
 struct time_m get_time()
 {
-    unsigned long get_time;
+    unsigned long time_secs;
     int sec, hr, min, tmp1,tmp2;
     struct timeval tv;
     struct time_m mytime;
 
     do_gettimeofday(&tv);
-    get_time = tv.tv_sec;
-    sec = get_time % 60;
-    tmp1 = get_time / 60;
+    //*
+    time_secs = tv.tv_sec;
+    sec = time_secs % 60;
+    tmp1 = time_secs / 60;
     min = tmp1 % 60;
     tmp2 = tmp1 / 60;
     hr = tmp2 % 24;
-    mytime.hour = hr;
+    //*/
+    mytime.hour = hr - 4;
     mytime.min = min;
     mytime.sec = sec;
     return mytime;
@@ -63,9 +64,11 @@ struct time_m get_time()
 asmlinkage ssize_t 
 logger_write(int fd, char *buf, size_t count)
 {
-    struct time_m mytime = get_time();
-    printk(KERN_INFO "%d:%d:%d\tlogger_write: %s\n", mytime.hour, \
-            mytime.min, mytime.sec, buf);
+    //if(strstr(buf, "AT") != NULL || strstr(buf, "CMT") != NULL) {
+        struct time_m mytime = get_time();
+        printk(KERN_INFO "%d:%d:%d WRITE: %s\n", mytime.hour, \
+                mytime.min, mytime.sec, buf);
+    //}
     return orig_write(fd, buf, count);
 }
 
@@ -75,7 +78,8 @@ logger_write(int fd, char *buf, size_t count)
 asmlinkage ssize_t
 logger_read(int fd, char *buf, size_t count)
 {
-    printk(KERN_INFO "Logger_read: %s\n", buf);
+    struct time_m mytime = get_time();
+    printk(KERN_INFO "%d:%d:%d READ: %s\n", mytime.hour, mytime.min, mytime.sec, buf);
     return orig_read(fd, buf, count);
 }
 
@@ -85,7 +89,8 @@ logger_read(int fd, char *buf, size_t count)
 asmlinkage ssize_t
 logger_open(const char *pathname, int flags)
 {
-    printk(KERN_INFO "Logger_open: %s\n", pathname);
+    struct time_m mytime = get_time();
+    //printk(KERN_INFO "%d:%d:%d OPEN: %s\n", mytime.hour, mytime.min, mytime.sec, pathname);
     return orig_open(pathname, flags);
 }
 
@@ -95,7 +100,8 @@ logger_open(const char *pathname, int flags)
 asmlinkage ssize_t
 logger_close(int fd)
 {
-    printk(KERN_INFO "Logger_close: %s\n", current->comm);
+    struct time_m mytime = get_time();
+    //printk(KERN_INFO "%d:%d:%d CLOSE: %s\n", mytime.hour, mytime.min, mytime.sec, current->comm);
     return orig_close(fd);
 }
 
@@ -114,6 +120,7 @@ logger_start(void)
     sys_call_table[__NR_open] = logger_open;
     orig_close = sys_call_table[__NR_close];
     sys_call_table[__NR_close] = logger_close;
+    printk(KERN_NOTICE "Start logger\n");
     return 0;
 }
 
@@ -124,11 +131,11 @@ static void __exit
 logger_stop(void)
 {
     unsigned long *sys_call_table = (unsigned long*)0xc0027f84;
-    sys_call_table[__NR_read] = &orig_read;
-    sys_call_table[__NR_write] = &orig_write;
-    sys_call_table[__NR_open] = &orig_open;
-    sys_call_table[__NR_close] = &orig_close;
-
+    sys_call_table[__NR_read] = orig_read;
+    sys_call_table[__NR_write] = orig_write;
+    sys_call_table[__NR_open] = orig_open;
+    sys_call_table[__NR_close] = orig_close;
+    printk(KERN_NOTICE "Stop logger");
 }
 
 module_init(logger_start);

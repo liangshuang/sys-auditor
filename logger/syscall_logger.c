@@ -78,8 +78,9 @@ logger_write(int fd, char *buf, size_t count)
 asmlinkage ssize_t
 logger_read(int fd, char *buf, size_t count)
 {
+    char* p = buf;
     struct time_m mytime = get_time();
-    printk(KERN_INFO "%d:%d:%d READ: %s\n", mytime.hour, mytime.min, mytime.sec, buf);
+    printk(KERN_INFO "%d:%d:%d READ: %s", mytime.hour, mytime.min, mytime.sec, buf);
     return orig_read(fd, buf, count);
 }
 

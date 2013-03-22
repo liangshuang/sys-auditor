@@ -10,3 +10,4 @@ Module.symvers
 *.mod.c
 # Temporary files
 *.swp
+*.log

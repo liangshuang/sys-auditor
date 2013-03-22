@@ -31,6 +31,7 @@ asmlinkage ssize_t (*orig_write)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_open)(const char *pathname, int flags);
 asmlinkage ssize_t (*orig_close)(int fd);
 
+asmlinkage int (*orig_socketcall)(int call, unsigned long *args);
 struct time_m{
     int hour;
     int min;
@@ -61,6 +62,18 @@ struct time_m get_time()
 //------------------------------------------------------------------------------
 // Hooked write for logger
 //------------------------------------------------------------------------------
+asmlinkage int
+logger_socketcall(int call, unsigned long *args)
+{
+    struct time_m mytime = get_time();
+    printk(KERN_INFO "%d:%d:%d SOCKETCALL: %s\n", mytime.hour, \
+            mytime.min, mytime.sec, (char*)args);
+   
+    return orig_socketcall(call, args); 
+}
+//------------------------------------------------------------------------------
+// Hooked write for logger
+//------------------------------------------------------------------------------
 asmlinkage ssize_t 
 logger_write(int fd, char *buf, size_t count)
 {
@@ -80,7 +93,7 @@ logger_read(int fd, char *buf, size_t count)
 {
     char* p = buf;
     struct time_m mytime = get_time();
-    printk(KERN_INFO "%d:%d:%d READ: %s", mytime.hour, mytime.min, mytime.sec, buf);
+    printk(KERN_INFO "%d:%d:%d READ: %s\n", mytime.hour, mytime.min, mytime.sec, buf);
     return orig_read(fd, buf, count);
 }
 
@@ -121,6 +134,10 @@ logger_start(void)
     sys_call_table[__NR_open] = logger_open;
     orig_close = sys_call_table[__NR_close];
     sys_call_table[__NR_close] = logger_close;
+/*
+    orig_socketcall = sys_call_table[__NR_socketcall];
+    sys_call_table[__NR_socketcall] = logger_socketcall;
+*/
     printk(KERN_NOTICE "Start logger\n");
     return 0;
 }
@@ -136,6 +153,7 @@ logger_stop(void)
     sys_call_table[__NR_write] = orig_write;
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;
+//    sys_call_table[__NR_socketcall] = orig_socketcall;
     printk(KERN_NOTICE "Stop logger");
 }
 

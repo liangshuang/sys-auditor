@@ -24,7 +24,6 @@
 #include <linux/workqueue.h>
 
 #include <linux/time.h>
-
 MODULE_LICENSE("GPL");
 
 asmlinkage ssize_t (*orig_read)(int fd, char *buf, size_t count);
@@ -106,14 +105,16 @@ logger_socket(int family, int type, int protocol)
 asmlinkage ssize_t 
 logger_write(int fd, char *buf, size_t count)
 {
+    ssize_t ret;
+    struct time_m mytime;
+    ret = orig_write(fd, buf, count);
     //*
     //if(strstr(buf, "AT") != NULL || strstr(buf, "CMT") != NULL) {
-        struct time_m mytime = get_time();
-        printk("%d:%d:%d WRITE:\n", mytime.hour, \
-                mytime.min, mytime.sec);
+        mytime = get_time();
+        printk("%d:%d:%d WRITE:\n", mytime.hour, mytime.min, mytime.sec);
     //}
     //*/
-    return orig_write(fd, buf, count);
+    return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -122,12 +123,15 @@ logger_write(int fd, char *buf, size_t count)
 asmlinkage ssize_t
 logger_read(int fd, char *buf, size_t count)
 {
+    ssize_t ret;
+    struct time_m mytime;
+    ret = orig_read(fd, buf, count);
     //char* p = buf;
     //*
-    struct time_m mytime = get_time();
+    mytime = get_time();
     printk(KERN_INFO "%d:%d:%d READ:\n", mytime.hour, mytime.min, mytime.sec);
     //*/
-    return orig_read(fd, buf, count);
+    return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -155,27 +159,24 @@ logger_close(int fd)
 //------------------------------------------------------------------------------
 // Initialize and start system call hooker
 //------------------------------------------------------------------------------
+#define TABLE_ADDR 0xc0010568
 static int __init
 logger_start(void)
 {
-    unsigned long *sys_call_table = (unsigned long*)0xc0010568;
-    orig_read = (void*)sys_call_table[__NR_read];
-    sys_call_table[__NR_read] = (unsigned long)logger_read;
+    void **sys_call_table = (void**)TABLE_ADDR;
 
-    orig_write = (void*)sys_call_table[__NR_write];
-    sys_call_table[__NR_write] = (unsigned long)logger_write;
+    orig_read = sys_call_table[__NR_read];
+    sys_call_table[__NR_read] = logger_read;
 
-    orig_open = (void*)sys_call_table[__NR_open];
-    sys_call_table[__NR_open] = (unsigned long)logger_open;
+    orig_write = sys_call_table[__NR_write];
+    sys_call_table[__NR_write] = logger_write;
 
-    orig_close = (void*)sys_call_table[__NR_close];
-    sys_call_table[__NR_close] = (unsigned long)logger_close;
+    orig_open = sys_call_table[__NR_open];
+    sys_call_table[__NR_open] = logger_open;
 
-#ifdef __ARCH_WANT_SYS_SOCKETCALL
-    orig_socketcall = (void*)sys_call_table[__NR_socketcall];
-    sys_call_table[__NR_socketcall] = (unsigned long)logger_socketcall;
-#else
-#endif
+    orig_close = sys_call_table[__NR_close];
+    sys_call_table[__NR_close] = logger_close;
+
     printk(KERN_NOTICE "Start logger\n");
     return 0;
 }
@@ -186,16 +187,13 @@ logger_start(void)
 static void __exit
 logger_stop(void)
 {
-    unsigned long *sys_call_table = (unsigned long*)0xc0010568;
-    sys_call_table[__NR_read] = (unsigned long)orig_read;
-    sys_call_table[__NR_write] = (unsigned long)orig_write;
-    sys_call_table[__NR_open] = (unsigned long)orig_open;
-    sys_call_table[__NR_close] = (unsigned long)orig_close;
-#ifdef __ARCH_WANT_SYS_SOCKETCALL
-    sys_call_table[__NR_socketcall] = (unsigned long)orig_socketcall;
-#endif
+    void **sys_call_table = (void**)TABLE_ADDR;
+    sys_call_table[__NR_read] = orig_read;
+    sys_call_table[__NR_write] = orig_write;
+    sys_call_table[__NR_open] = orig_open;
+    sys_call_table[__NR_close] = orig_close;
 
-    printk(KERN_NOTICE "Stop logger");
+    printk(KERN_NOTICE "Stop logger\n");
 }
 
 module_init(logger_start);

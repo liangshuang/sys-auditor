@@ -1,5 +1,7 @@
 obj-m += syscall_logger.o
-KERNEL_DIR=~/Working/workspace/android/kernels/goldfish/
+#KERNEL_DIR=~/Working/workspace/android/kernels/goldfish/
+KERNEL_DIR=~/Working/workspace/android/kernels/lge/msm
+
 PWD := $(shell pwd)
 
 all:

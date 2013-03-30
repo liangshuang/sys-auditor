@@ -24,6 +24,7 @@
 #include <linux/workqueue.h>
 
 #include <linux/time.h>
+
 MODULE_LICENSE("GPL");
 
 asmlinkage ssize_t (*orig_read)(int fd, char *buf, size_t count);
@@ -124,12 +125,13 @@ asmlinkage ssize_t
 logger_read(int fd, char *buf, size_t count)
 {
     ssize_t ret;
-    struct time_m mytime;
+    //struct time_m mytime;
     ret = orig_read(fd, buf, count);
     //char* p = buf;
     //*
-    mytime = get_time();
-    printk(KERN_INFO "%d:%d:%d READ:\n", mytime.hour, mytime.min, mytime.sec);
+    //mytime = get_time();
+    //printk(KERN_INFO "%d:%d:%d READ:\n", mytime.hour, mytime.min, mytime.sec);
+    printk("READ\n");
     //*/
     return ret;
 }
@@ -140,8 +142,8 @@ logger_read(int fd, char *buf, size_t count)
 asmlinkage ssize_t
 logger_open(const char *pathname, int flags)
 {
-   // struct time_m mytime = get_time();
-    //printk(KERN_INFO "%d:%d:%d OPEN: %s\n", mytime.hour, mytime.min, mytime.sec, pathname);
+    struct time_m mytime = get_time();
+    printk(KERN_INFO "%d:%d:%d OPEN: %s\n", mytime.hour, mytime.min, mytime.sec, pathname);
     return orig_open(pathname, flags);
 }
 
@@ -151,8 +153,8 @@ logger_open(const char *pathname, int flags)
 asmlinkage ssize_t
 logger_close(int fd)
 {
-    //struct time_m mytime = get_time();
-    //printk(KERN_INFO "%d:%d:%d CLOSE: %s\n", mytime.hour, mytime.min, mytime.sec, current->comm);
+    struct time_m mytime = get_time();
+    printk(KERN_INFO "%d:%d:%d CLOSE: %s\n", mytime.hour, mytime.min, mytime.sec, current->comm);
     return orig_close(fd);
 }
 
@@ -168,15 +170,16 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
+/*
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
+*/
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;
 
     orig_close = sys_call_table[__NR_close];
     sys_call_table[__NR_close] = logger_close;
-
     printk(KERN_NOTICE "Start logger\n");
     return 0;
 }
@@ -188,11 +191,12 @@ static void __exit
 logger_stop(void)
 {
     void **sys_call_table = (void**)TABLE_ADDR;
-    sys_call_table[__NR_read] = orig_read;
+/*
     sys_call_table[__NR_write] = orig_write;
+*/
+    sys_call_table[__NR_read] = orig_read;
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;
-
     printk(KERN_NOTICE "Stop logger\n");
 }
 

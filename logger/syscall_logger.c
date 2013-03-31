@@ -108,11 +108,14 @@ logger_write(int fd, char *buf, size_t count)
 {
     ssize_t ret;
     struct time_m mytime;
+    int uid = 0;
+    uid = current->pid;
     ret = orig_write(fd, buf, count);
     //*
     //if(strstr(buf, "AT") != NULL || strstr(buf, "CMT") != NULL) {
         mytime = get_time();
-        printk("%d:%d:%d WRITE:\n", mytime.hour, mytime.min, mytime.sec);
+        printk("%d:%d:%d WRITE:%s\n", mytime.hour, mytime.min, mytime.sec, buf);
+        printk("uid: %d", uid);
     //}
     //*/
     return ret;
@@ -131,7 +134,7 @@ logger_read(int fd, char *buf, size_t count)
     //*
     //mytime = get_time();
     //printk(KERN_INFO "%d:%d:%d READ:\n", mytime.hour, mytime.min, mytime.sec);
-    printk("READ\n");
+    //printk("READ\n");
     //*/
     return ret;
 }
@@ -166,20 +169,22 @@ static int __init
 logger_start(void)
 {
     void **sys_call_table = (void**)TABLE_ADDR;
-
+    // Read
+/*
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
-/*
+*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
-*/
+    // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;
-
+    // Close
     orig_close = sys_call_table[__NR_close];
     sys_call_table[__NR_close] = logger_close;
+
     printk(KERN_NOTICE "Start logger\n");
     return 0;
 }
@@ -192,9 +197,14 @@ logger_stop(void)
 {
     void **sys_call_table = (void**)TABLE_ADDR;
 /*
-    sys_call_table[__NR_write] = orig_write;
-*/
+    if(sys_call_table[__NR_read] != logger_read) {
+        printk("<1>Read system call was hooked by other program\n");
+        printk("<1>Remove will cause read system call in an unstable state\n");
+    }
+
     sys_call_table[__NR_read] = orig_read;
+*/
+    sys_call_table[__NR_write] = orig_write;
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;
     printk(KERN_NOTICE "Stop logger\n");

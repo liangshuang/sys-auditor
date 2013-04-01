@@ -115,7 +115,7 @@ logger_write(int fd, char *buf, size_t count)
     //if(strstr(buf, "AT") != NULL || strstr(buf, "CMT") != NULL) {
         mytime = get_time();
         printk("%d:%d:%d WRITE:%s\n", mytime.hour, mytime.min, mytime.sec, buf);
-        printk("uid: %d", uid);
+        printk("uid: %d\n", uid);
     //}
     //*/
     return ret;
@@ -146,8 +146,10 @@ asmlinkage ssize_t
 logger_open(const char *pathname, int flags)
 {
     struct time_m mytime = get_time();
+    ssize_t ret;
+    ret = orig_open(pathname, flags);
     printk(KERN_INFO "%d:%d:%d OPEN: %s\n", mytime.hour, mytime.min, mytime.sec, pathname);
-    return orig_open(pathname, flags);
+    return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -157,8 +159,10 @@ asmlinkage ssize_t
 logger_close(int fd)
 {
     struct time_m mytime = get_time();
+    ssize_t ret;
+    ret = orig_close(fd);
     printk(KERN_INFO "%d:%d:%d CLOSE: %s\n", mytime.hour, mytime.min, mytime.sec, current->comm);
-    return orig_close(fd);
+    return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -174,7 +178,7 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
-*/
+//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
@@ -203,7 +207,7 @@ logger_stop(void)
     }
 
     sys_call_table[__NR_read] = orig_read;
-*/
+//*/
     sys_call_table[__NR_write] = orig_write;
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;

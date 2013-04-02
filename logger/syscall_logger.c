@@ -128,12 +128,12 @@ asmlinkage ssize_t
 logger_read(int fd, char *buf, size_t count)
 {
     ssize_t ret;
-    //struct time_m mytime;
+    struct time_m mytime;
     ret = orig_read(fd, buf, count);
     //char* p = buf;
     //*
-    //mytime = get_time();
-    //printk(KERN_INFO "%d:%d:%d READ:\n", mytime.hour, mytime.min, mytime.sec);
+    mytime = get_time();
+    printk(KERN_INFO "%d:%d:%d READ:\n", mytime.hour, mytime.min, mytime.sec);
     //printk("READ\n");
     //*/
     return ret;

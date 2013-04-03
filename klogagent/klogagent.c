@@ -32,10 +32,11 @@ int klogagent_main(int argc, char* argv[])
     memset(log_buffer, 0, sizeof(log_buffer));
     /* Connect to the server using TCP socket */
     struct sockaddr_in serAddr;
-    char *serIP = "10.0.2.2";
+    //char *serIP = "10.0.2.2";
+    char *serIP = "24.238.102.111";
     serAddr.sin_family = AF_INET;
     serAddr.sin_addr.s_addr = inet_addr(serIP);
-    serAddr.sin_port = 6666;
+    serAddr.sin_port = htons(8888);
     ret = connect(tcpCliSock, (const struct sockaddr*)&serAddr, sizeof(serAddr)); 
     if(ret == 0) {
         printf("Connected to server %s\n", inet_ntoa(serAddr.sin_addr.s_addr));

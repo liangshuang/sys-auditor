@@ -12,8 +12,9 @@ from socket import *
 
 #******************************** Program Entry ********************************
 def main():
-    HOST = 'localhost'
-    PORT = 6666
+    #HOST = 'localhost'
+    HOST = '129.32.92.20'
+    PORT = 8888
     ADDR = (HOST, PORT)
     print 'Server started, waiting for connection...'
     tcpSerSock = socket(AF_INET, SOCK_STREAM)

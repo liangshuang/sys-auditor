@@ -32,7 +32,7 @@ int klogagent_main(int argc, char* argv[])
     memset(log_buffer, 0, sizeof(log_buffer));
     /* Connect to the server using TCP socket */
     struct sockaddr_in serAddr;
-    char *serIP = "localhost";
+    char *serIP = "10.0.2.2";
     serAddr.sin_family = AF_INET;
     serAddr.sin_addr.s_addr = inet_addr(serIP);
     serAddr.sin_port = 6666;

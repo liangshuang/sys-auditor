@@ -57,6 +57,6 @@ int klog_copy()
 //------------------------------------------------------------------------------
 int log_proc(int size)
 {
-    int fd = STDIO 
+    int fd = stdout ;
     return 0;
 }

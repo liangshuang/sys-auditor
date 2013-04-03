@@ -66,7 +66,6 @@ int log_proc(int size)
     int len = size;
     int rc = 0;
     char* bp = log_buffer;
-    printf("Display buffer content %d: \n", len);
     while(len) {
         //rc = write(STDOUT_FILENO, bp, len);
         if(rc == -1) {

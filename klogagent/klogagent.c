@@ -9,26 +9,49 @@
 #include <string.h>
 #include <sys/klog.h>
 #include <errno.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+
 /*********************** Global Variables and Declarations ********************/
 #define LOGBUFFER_SIZE 1024
 char log_buffer[LOGBUFFER_SIZE];
 
 /************************** Function Protocalls *******************************/
-int klog_copy(void);
+int klog_dump(void);
 int log_proc(int size);
 
 /******************************** Program Entry *******************************/
-int klogtrans_main(int argc, char* argv[])
+int klogagent_main(int argc, char* argv[])
 {
+    int tcpCliSock;
+    int ret;
+    tcpCliSock = socket(AF_INET, SOCK_STREAM, 0);
     memset(log_buffer, 0, sizeof(log_buffer));
+    /* Connect to the server using TCP socket */
+    struct sockaddr_in serAddr;
+    char *serIP = "localhost";
+    serAddr.sin_family = AF_INET;
+    serAddr.sin_addr.s_addr = inet_addr(serIP);
+    serAddr.sin_port = 6666;
+    ret = connect(tcpCliSock, (const struct sockaddr*)&serAddr, sizeof(serAddr)); 
+    if(ret == 0) {
+        printf("Connected to server %s\n", inet_ntoa(serAddr.sin_addr.s_addr));
+    } else {
+        printf("Failed to conncet to %s\n", inet_ntoa(serAddr.sin_addr.s_addr));
+        exit(-1);
+    }
+    return 0;
     printf("Kernel logs:\n");
-    while(!klog_copy());
+    while(!klog_dump());
     return 0;
 }
 //------------------------------------------------------------------------------
 // Get log info from kernel 
 //------------------------------------------------------------------------------
-int klog_copy()
+int klog_dump()
 {
 /*
  * Arguments to klogctl:
@@ -67,7 +90,7 @@ int log_proc(int size)
     int rc = 0;
     char* bp = log_buffer;
     while(len) {
-        //rc = write(STDOUT_FILENO, bp, len);
+        rc = write(STDOUT_FILENO, bp, len);
         if(rc == -1) {
             if(errno == EINTR) continue;
             else return -1;

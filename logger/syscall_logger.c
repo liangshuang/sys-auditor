@@ -33,6 +33,7 @@ asmlinkage ssize_t (*orig_open)(const char *pathname, int flags);
 asmlinkage ssize_t (*orig_close)(int fd);
 
 asmlinkage int (*orig_socketcall)(int call, unsigned long *args);
+asmlinkage int (*orig_socket)(int family, int type, int protocol);
 
 struct time_m{
     int hour;
@@ -108,14 +109,15 @@ logger_write(int fd, char *buf, size_t count)
 {
     ssize_t ret;
     struct time_m mytime;
-    int uid = 0;
-    uid = current->pid;
+    int pid = 0;
+    pid = current->pid;
+
     ret = orig_write(fd, buf, count);
     //*
     //if(strstr(buf, "AT") != NULL || strstr(buf, "CMT") != NULL) {
         mytime = get_time();
         printk("%d:%d:%d WRITE:%s\n", mytime.hour, mytime.min, mytime.sec, buf);
-        printk("uid: %d\n", uid);
+        printk("PID: %d\n", pid);
     //}
     //*/
     return ret;
@@ -147,8 +149,12 @@ logger_open(const char *pathname, int flags)
 {
     struct time_m mytime = get_time();
     ssize_t ret;
+    int pid = 0;
+    pid = current->pid;
+
     ret = orig_open(pathname, flags);
     printk(KERN_INFO "%d:%d:%d OPEN: %s\n", mytime.hour, mytime.min, mytime.sec, pathname);
+    printk("PID: %d\n", pid);
     return ret;
 }
 
@@ -168,7 +174,8 @@ logger_close(int fd)
 //------------------------------------------------------------------------------
 // Initialize and start system call hooker
 //------------------------------------------------------------------------------
-#define TABLE_ADDR 0xc0010568
+//#define TABLE_ADDR 0xc0010568
+#define TABLE_ADDR 0xc000eb84
 static int __init
 logger_start(void)
 {
@@ -178,10 +185,10 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
-//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
+//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;
@@ -207,8 +214,8 @@ logger_stop(void)
     }
 
     sys_call_table[__NR_read] = orig_read;
-//*/
     sys_call_table[__NR_write] = orig_write;
+//*/
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;
     printk(KERN_NOTICE "Stop logger\n");

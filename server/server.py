@@ -25,9 +25,14 @@ def main():
     # Wait for new connection, blocking
     tcpCliSock, addr = tcpSerSock.accept()
     print '...connected from ', addr 
+
     # Print kernel log
-    log = tcpCliSock.recv(BUFSIZ)
-    print log
+    while True:
+        log = tcpCliSock.recv(BUFSIZ)
+        if not log:
+            continue;
+        else:
+            print log
 
     tcpCliSock.close()
         

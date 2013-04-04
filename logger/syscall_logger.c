@@ -175,7 +175,7 @@ logger_close(int fd)
 // Initialize and start system call hooker
 //------------------------------------------------------------------------------
 //#define TABLE_ADDR 0xc0010568
-#define TABLE_ADDR 0xc000eb84
+#define TABLE_ADDR 0xc0010568
 static int __init
 logger_start(void)
 {
@@ -185,10 +185,10 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
+//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
-//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;
@@ -214,8 +214,8 @@ logger_stop(void)
     }
 
     sys_call_table[__NR_read] = orig_read;
-    sys_call_table[__NR_write] = orig_write;
 //*/
+    sys_call_table[__NR_write] = orig_write;
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;
     printk(KERN_NOTICE "Stop logger\n");

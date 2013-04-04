@@ -34,8 +34,6 @@ int klogagent_main(int argc, char* argv[])
     struct sockaddr_in serAddr;
     char *serIP = "10.0.2.2";
     short serPORT = 8888;
-    //char *serIP = "24.238.102.111";
-    //char *serIP = "129.32.94.230";
     serAddr.sin_family = AF_INET;
     serAddr.sin_addr.s_addr = inet_addr(serIP);
     serAddr.sin_port = htons(serPORT);
@@ -79,10 +77,12 @@ int klog_dump(int fd)
     if(logcnt < 0) {
         if(errno == EINTR) {
             return 0;
+        } else {
+            //perror()
+            printf(stderr, "ERROR klogctl\n");
+            close(fd);
+            return -1;
         }
-        //perror()
-        printf(stderr, "ERROR klogctl\n");
-        return -1;
     } else return log_proc(fd, logcnt);
 
 }
@@ -98,7 +98,10 @@ int log_proc(int fd, int size)
         rc = write(fd, pbuf, len);
         if(rc == -1) {
             if(errno == EINTR) continue;
-            else return -1;
+            else {
+                close(fd);
+                return -1;
+            }
         }
         len -= rc;
         pbuf += rc;
@@ -106,3 +109,4 @@ int log_proc(int fd, int size)
     }
     return 0;
 }
+

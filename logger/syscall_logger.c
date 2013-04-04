@@ -180,10 +180,10 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
+//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
-//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;

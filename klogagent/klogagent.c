@@ -20,8 +20,8 @@
 char log_buffer[LOGBUFFER_SIZE];
 
 /************************** Function Protocalls *******************************/
-int klog_dump(void);
-int log_proc(int size);
+int klog_dump(int fd);
+int log_proc(int fd, int size);
 
 /******************************** Program Entry *******************************/
 int klogagent_main(int argc, char* argv[])
@@ -33,27 +33,30 @@ int klogagent_main(int argc, char* argv[])
     /* Connect to the server using TCP socket */
     struct sockaddr_in serAddr;
     char *serIP = "10.0.2.2";
+    short serPORT = 8888;
     //char *serIP = "24.238.102.111";
     //char *serIP = "129.32.94.230";
     serAddr.sin_family = AF_INET;
     serAddr.sin_addr.s_addr = inet_addr(serIP);
-    serAddr.sin_port = htons(8888);
+    serAddr.sin_port = htons(serPORT);
     ret = connect(tcpCliSock, (const struct sockaddr*)&serAddr, sizeof(serAddr)); 
     if(ret == 0) {
-        printf("Connected to server %s\n", inet_ntoa(serAddr.sin_addr.s_addr));
+        printf("Connected to server %s:%d\n", inet_ntoa(serAddr.sin_addr.s_addr), serPORT);
     } else {
-        printf("Failed to conncet to %s\n", inet_ntoa(serAddr.sin_addr.s_addr));
+        printf("Failed to conncet to %s:%d\n", inet_ntoa(serAddr.sin_addr.s_addr), serPORT);
         exit(-1);
     }
-    return 0;
+
+    /* Transer logs to server */
+    //int fd = STDOUT_FILENO;
     printf("Kernel logs:\n");
-    while(!klog_dump());
+    while(!klog_dump(tcpCliSock));
     return 0;
 }
 //------------------------------------------------------------------------------
 // Get log info from kernel 
 //------------------------------------------------------------------------------
-int klog_dump()
+int klog_dump(int fd)
 {
 /*
  * Arguments to klogctl:
@@ -80,26 +83,26 @@ int klog_dump()
         //perror()
         printf(stderr, "ERROR klogctl\n");
         return -1;
-    } else return log_proc(logcnt);
+    } else return log_proc(fd, logcnt);
 
 }
 //------------------------------------------------------------------------------
 // Preprocess logs before send out
 //------------------------------------------------------------------------------
-int log_proc(int size)
+int log_proc(int fd, int size)
 {
     int len = size;
     int rc = 0;
-    char* bp = log_buffer;
+    char* pbuf = log_buffer;
     while(len) {
-        rc = write(STDOUT_FILENO, bp, len);
+        rc = write(fd, pbuf, len);
         if(rc == -1) {
             if(errno == EINTR) continue;
             else return -1;
         }
         len -= rc;
-        bp += rc;
-        fsync(STDOUT_FILENO);
+        pbuf += rc;
+        fsync(fd);
     }
     return 0;
 }

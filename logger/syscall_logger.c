@@ -24,6 +24,7 @@
 #include <linux/workqueue.h>
 
 #include <linux/time.h>
+#include <linux/cred.h>
 
 MODULE_LICENSE("GPL");
 
@@ -46,7 +47,7 @@ struct time_m get_time(void)
     unsigned long time_secs;
     int sec, hr, min, tmp1,tmp2;
     struct timeval tv;
-    struct time_m mytime;
+    struct time_m callTime;
 
     do_gettimeofday(&tv);
     //*
@@ -57,10 +58,10 @@ struct time_m get_time(void)
     tmp2 = tmp1 / 60;
     hr = tmp2 % 24;
     //*/
-    mytime.hour = hr - 4;
-    mytime.min = min;
-    mytime.sec = sec;
-    return mytime;
+    callTime.hour = hr - 4;
+    callTime.min = min;
+    callTime.sec = sec;
+    return callTime;
 }
 #ifdef __ARCH_WANT_SYS_SOCKETCALL
 //------------------------------------------------------------------------------
@@ -70,19 +71,19 @@ struct time_m get_time(void)
 asmlinkage int
 logger_socketcall(int call, unsigned long * args)
 {
-    struct time_m calltime = get_time();
+    struct time_m callTime = get_time();
     switch(call){
         case SYS_SOCKET:
-            printk(KERN_INFO "%d:%d:%d SOCKETCALL-SOCKET: \n", calltime.hour, calltime.min, calltime.sec);
+            printk(KERN_INFO "%d:%d:%d SOCKETCALL-SOCKET: \n", callTime.hour, callTime.min, callTime.sec);
             break;
         case SYS_BIND:
-            printk(KERN_INFO "%d:%d:%d SOCKETCALL-BIND: \n", calltime.hour, calltime.min, calltime.sec);
+            printk(KERN_INFO "%d:%d:%d SOCKETCALL-BIND: \n", callTime.hour, callTime.min, callTime.sec);
             break;
         case SYS_CONNECT:
-            printk(KERN_INFO "%d:%d:%d SOCKETCALL-CONNECT: \n", calltime.hour, calltime.min, calltime.sec);
+            printk(KERN_INFO "%d:%d:%d SOCKETCALL-CONNECT: \n", callTime.hour, callTime.min, callTime.sec);
             break;
         case SYS_LISTEN:
-            printk(KERN_INFO "%d:%d:%d SOCKETCALL-LISTEN: \n", calltime.hour, calltime.min, calltime.sec);
+            printk(KERN_INFO "%d:%d:%d SOCKETCALL-LISTEN: \n", callTime.hour, callTime.min, callTime.sec);
             break;
 
     }
@@ -95,8 +96,8 @@ logger_socketcall(int call, unsigned long * args)
 asmlinkage int
 logger_socket(int family, int type, int protocol)
 {
-    struct time_m calltime = get_time();
-    printk(KERN_INFO "%d:%d:%d SOCKET:\n", calltime.hour, calltime.min, calltime.sec);
+    struct time_m callTime = get_time();
+    printk(KERN_INFO "%d:%d:%d SOCKET:\n", callTime.hour, callTime.min, callTime.sec);
     return orig_socket(family, type, protocol);
 }
 #endif
@@ -108,18 +109,12 @@ asmlinkage ssize_t
 logger_write(int fd, char *buf, size_t count)
 {
     ssize_t ret;
-    struct time_m mytime;
-    int pid = 0;
-    pid = current->pid;
-
+    struct time_m callTime;
     ret = orig_write(fd, buf, count);
-    //*
-    //if(strstr(buf, "AT") != NULL || strstr(buf, "CMT") != NULL) {
-        mytime = get_time();
-        printk("%d:%d:%d WRITE:%s\n", mytime.hour, mytime.min, mytime.sec, buf);
-        printk("PID: %d\n", pid);
-    //}
-    //*/
+    callTime = get_time();
+    /* Add log entry */
+    printk(KERN_INFO "[%d:%d:%d] [PID: %d] [UID: %d] [WRITE] [%s]\n", callTime.hour, \
+        callTime.min, callTime.sec, current->pid, current_uid(), buf);
     return ret;
 }
 
@@ -130,12 +125,12 @@ asmlinkage ssize_t
 logger_read(int fd, char *buf, size_t count)
 {
     ssize_t ret;
-    struct time_m mytime;
+    struct time_m callTime;
     ret = orig_read(fd, buf, count);
     //char* p = buf;
     //*
-    mytime = get_time();
-    printk(KERN_INFO "%d:%d:%d READ:\n", mytime.hour, mytime.min, mytime.sec);
+    callTime = get_time();
+    printk(KERN_INFO "%d:%d:%d READ:\n", callTime.hour, callTime.min, callTime.sec);
     //printk("READ\n");
     //*/
     return ret;
@@ -147,14 +142,12 @@ logger_read(int fd, char *buf, size_t count)
 asmlinkage ssize_t
 logger_open(const char *pathname, int flags)
 {
-    struct time_m mytime = get_time();
+    struct time_m callTime = get_time();
     ssize_t ret;
-    int pid = 0;
-    pid = current->pid;
-
     ret = orig_open(pathname, flags);
-    printk(KERN_INFO "%d:%d:%d OPEN: %s\n", mytime.hour, mytime.min, mytime.sec, pathname);
-    printk("PID: %d\n", pid);
+    /* Add log entry */
+    printk(KERN_INFO "[%d:%d:%d] [PID: %d] [UID: %d] [OPEN] [%s]\n", callTime.hour, \
+        callTime.min, callTime.sec, current->pid, current_uid(), pathname);
     return ret;
 }
 
@@ -164,18 +157,20 @@ logger_open(const char *pathname, int flags)
 asmlinkage ssize_t
 logger_close(int fd)
 {
-    struct time_m mytime = get_time();
+    struct time_m callTime = get_time();
     ssize_t ret;
     ret = orig_close(fd);
-    printk(KERN_INFO "%d:%d:%d CLOSE: %s\n", mytime.hour, mytime.min, mytime.sec, current->comm);
+    /* Add log entry */
+    printk(KERN_INFO "[%d:%d:%d] [PID: %d] [UID: %d] [CLOSE]\n", callTime.hour, \
+        callTime.min, callTime.sec, current->pid, current_uid());
     return ret;
 }
 
 //------------------------------------------------------------------------------
 // Initialize and start system call hooker
 //------------------------------------------------------------------------------
+#define TABLE_ADDR 0xc000eb84
 //#define TABLE_ADDR 0xc0010568
-#define TABLE_ADDR 0xc0010568
 static int __init
 logger_start(void)
 {
@@ -185,10 +180,10 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
-//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
+//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;

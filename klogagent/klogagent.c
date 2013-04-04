@@ -95,6 +95,9 @@ int log_proc(int fd, int size)
     int rc = 0;
     char* pbuf = log_buffer;
     while(len) {
+        /* Add filter */
+        
+        /* Send log to server */
         rc = write(fd, pbuf, len);
         if(rc == -1) {
             if(errno == EINTR) continue;

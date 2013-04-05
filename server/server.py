@@ -17,7 +17,7 @@ def main():
     PORT = 8888
     ADDR = (HOST, PORT)
 
-    BUFSIZ = 1024
+    BUFSIZ = 4096
     tcpSerSock = socket(AF_INET, SOCK_STREAM)
     tcpSerSock.bind(ADDR)
     tcpSerSock.listen(5)

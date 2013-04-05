@@ -169,8 +169,9 @@ logger_close(int fd)
 //------------------------------------------------------------------------------
 // Initialize and start system call hooker
 //------------------------------------------------------------------------------
-#define TABLE_ADDR 0xc000eb84
+//#define TABLE_ADDR 0xc000eb84       // Lab:Goldfish Kernel
 //#define TABLE_ADDR 0xc0010568
+#define TABLE_ADDR 0xc000e168       // Home:Mako Kernel
 static int __init
 logger_start(void)
 {

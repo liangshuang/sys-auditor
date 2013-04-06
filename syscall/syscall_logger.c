@@ -27,7 +27,14 @@
 #include <linux/cred.h>
 
 MODULE_LICENSE("GPL");
+/****************************** Global Definitions ****************************/
 
+struct time_m{
+    int hour;
+    int min;
+    int sec;
+};
+/**************************** Global Variables ********************************/
 asmlinkage ssize_t (*orig_read)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_write)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_open)(const char *pathname, int flags);
@@ -36,12 +43,14 @@ asmlinkage ssize_t (*orig_close)(int fd);
 asmlinkage int (*orig_socketcall)(int call, unsigned long *args);
 asmlinkage int (*orig_socket)(int family, int type, int protocol);
 
-struct time_m{
-    int hour;
-    int min;
-    int sec;
-};
+#define KLOG_TAG    "KLOG"
+/**************************** Function Protocalls *****************************/
 
+/******************************** Program Entry  ******************************/
+
+//------------------------------------------------------------------------------
+// Get current local time and stored hour, min, secend in time_m structure
+//------------------------------------------------------------------------------
 struct time_m get_time(void)
 {
     unsigned long time_secs;
@@ -63,6 +72,7 @@ struct time_m get_time(void)
     callTime.sec = sec;
     return callTime;
 }
+
 #ifdef __ARCH_WANT_SYS_SOCKETCALL
 //------------------------------------------------------------------------------
 // Hooked socketcall for logger
@@ -146,7 +156,7 @@ logger_open(const char *pathname, int flags)
     ssize_t ret;
     ret = orig_open(pathname, flags);
     /* Add log entry */
-    printk(KERN_INFO "[%d:%d:%d] [PID: %d] [UID: %d] [OPEN] [%s]\n", callTime.hour, \
+    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [OPEN] [%s]\n", KLOG_TAG, callTime.hour, \
         callTime.min, callTime.sec, current->pid, current_uid(), pathname);
     return ret;
 }
@@ -161,7 +171,7 @@ logger_close(int fd)
     ssize_t ret;
     ret = orig_close(fd);
     /* Add log entry */
-    printk(KERN_INFO "[%d:%d:%d] [PID: %d] [UID: %d] [CLOSE]\n", callTime.hour, \
+    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [CLOSE] []\n", KLOG_TAG, callTime.hour, \
         callTime.min, callTime.sec, current->pid, current_uid());
     return ret;
 }
@@ -181,10 +191,10 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
-//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
+//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;
@@ -210,8 +220,8 @@ logger_stop(void)
     }
 
     sys_call_table[__NR_read] = orig_read;
-//*/
     sys_call_table[__NR_write] = orig_write;
+//*/
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;
     printk(KERN_NOTICE "Stop logger\n");

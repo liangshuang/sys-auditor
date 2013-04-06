@@ -14,9 +14,17 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-
+#include <string.h>
 /*********************** Global Variables and Declarations ********************/
-#define LOGBUFFER_SIZE 1024
+#define LOGBUFFER_SIZE 4096
+#define DBG_KLOGAGENT   0
+
+#if DBG_KLOGAGENT
+#define PRINT(fmt, args...)     printf(fmt, ##args)
+#else
+#define PRINT(fmt, args...)
+#endif
+
 char log_buffer[LOGBUFFER_SIZE];
 
 /************************** Function Protocalls *******************************/
@@ -28,9 +36,10 @@ int klogagent_main(int argc, char* argv[])
 {
     int tcpCliSock;
     int ret;
-    tcpCliSock = socket(AF_INET, SOCK_STREAM, 0);
     memset(log_buffer, 0, sizeof(log_buffer));
     /* Connect to the server using TCP socket */
+    //*
+    tcpCliSock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serAddr;
     //char *serIP = "10.0.2.2";
     char *serIP = "24.238.102.33";  // Beech IP
@@ -45,7 +54,7 @@ int klogagent_main(int argc, char* argv[])
         printf("Failed to conncet to %s:%d\n", inet_ntoa(serAddr.sin_addr.s_addr), serPORT);
         exit(-1);
     }
-
+    //*/
     /* Transer logs to server */
     //int fd = STDOUT_FILENO;
     printf("Kernel logs:\n");
@@ -92,14 +101,133 @@ int klog_dump(int fd)
 //------------------------------------------------------------------------------
 int log_proc(int fd, int size)
 {
-    int len = size;
+    int loglen = size;
     int rc = 0;
     char* pbuf = log_buffer;
-    while(len) {
-        /* Add filter */
+
+    char filter_buffer[LOGBUFFER_SIZE];
+    char *pfbuf = filter_buffer;
+    char *entry, *entry_end;
+    /* Filter based on UID */
+    int log_level;
+    char ktag[16], *ptag;
+    char *local_time;
+    int pid, uid;
+    char *syscall;
+    char temp[32], *ptemp;
+    int len;
+
+
+    
+    entry_end = pbuf;
+    printf("******************** Read kbuffer %d***************************\n", loglen);
+    while(loglen>0) {
+        while(*entry_end++ != '<' && --loglen);
+        if(!loglen) break;
+        entry = entry_end-1;
+        // log-level
+        log_level = *entry_end++ - '0'; loglen--;
+        PRINT("log-level=%d\n", log_level);
+
+        while(*entry_end++ != '>' &&  --loglen);
+        if(!loglen) break;
+        // timestamp
+        while(*entry_end++ != '[' && --loglen);
+        if(!loglen) break;
+        while(*entry_end++ != ']' && --loglen);
+        if(!loglen) break;
+
+        entry_end++; loglen--;   // blank
+        // KLOG_TAG
+        if(*entry_end++ != '[') {
+            loglen--; continue;
+        }
+        ptag = entry_end;
+        while(*entry_end++ != ']' && --loglen);
+        if(!loglen) break;
+        len = entry_end-1-ptag;
+        memcpy(ktag, ptag, len);
+        *(ktag+len) = '\0';
+        PRINT("TAG=%s\n", ktag);
+        if(strcmp(ktag, "KLOG") != 0)  {
+            printf("Not KLOG but %s\n", ktag);
+            continue;
+        }
+
+        // local-time
+        while(*entry_end++ != '[' && --loglen);
+        if(!loglen) break;
+        ptemp = entry_end;
         
+        while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
+        len = entry_end - ptemp - 1;
+        if(len > 32) {
+            PRINT("Localtime entry exceeds buffer size\n");
+            continue;
+        }
+        memcpy(temp, ptemp, len);
+        ptemp = temp;
+        *(ptemp+len) = '\0';
+        PRINT("LocalTime=%s\n", ptemp);
+        // PID
+        while(*entry_end++ != '[' && --loglen) ;
+        if(!loglen) break;
+        entry_end+=5; loglen-=5;  // Skip PID:
+        ptemp = entry_end;
+
+        while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
+        len = entry_end - ptemp -1; 
+        memcpy(temp, ptemp, len);
+        ptemp = temp;
+        *(ptemp+len) = '\0';
+        pid = atoi(ptemp);
+        PRINT("PID=%d\n", pid);
+        // UID
+        while(*entry_end++ != '[' && --loglen) ;
+        if(!loglen) break;
+        entry_end+=5; loglen-=5;  // Skip UID: 
+        ptemp = entry_end;
+        while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
+        len = entry_end - ptemp -1; 
+        memcpy(temp, ptemp, len);
+        ptemp = temp;
+        *(ptemp+len) = '\0';
+        uid = atoi(ptemp);
+        PRINT("UID=%d\n", uid);
+        // system-call
+        while(*entry_end++ != '[' && --loglen) ;
+        if(!loglen) break;
+        ptemp = entry_end;
+        while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
+        len = entry_end - ptemp -1;
+        memcpy(temp, ptemp, len);
+        ptemp = temp;
+        *(ptemp+len) = '\0';
+        PRINT("SYSCALL=%s\n", ptemp);
+        // parameters 
+        while(*entry_end++ != '[' && --loglen) ;
+        if(!loglen) break;
+        while(*entry_end++ != ']' && --loglen) ;
+
+        if(uid== 0) {
+            len = entry_end - entry + 1;
+            memcpy(pfbuf, entry, len);
+            pfbuf += len;
+        }
+
+    }
+    /* Transfer filterred logs to server */
+    loglen = pfbuf-filter_buffer;
+    pfbuf = filter_buffer;
+    while(loglen) {
+        /* Add filter */
+         
         /* Send log to server */
-        rc = write(fd, pbuf, len);
+        rc = write(fd, pfbuf, loglen);
         if(rc == -1) {
             if(errno == EINTR) continue;
             else {
@@ -107,8 +235,8 @@ int log_proc(int fd, int size)
                 return -1;
             }
         }
-        len -= rc;
-        pbuf += rc;
+        loglen -= rc;
+        pfbuf += rc;
         fsync(fd);
     }
     return 0;

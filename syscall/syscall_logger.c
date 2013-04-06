@@ -171,7 +171,7 @@ logger_close(int fd)
     ssize_t ret;
     ret = orig_close(fd);
     /* Add log entry */
-    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [CLOSE]\n", KLOG_TAG, callTime.hour, \
+    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [CLOSE] []\n", KLOG_TAG, callTime.hour, \
         callTime.min, callTime.sec, current->pid, current_uid());
     return ret;
 }

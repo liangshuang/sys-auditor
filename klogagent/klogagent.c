@@ -17,6 +17,13 @@
 #include <string.h>
 /*********************** Global Variables and Declarations ********************/
 #define LOGBUFFER_SIZE 4096
+#define DBG_KLOGAGENT   0
+
+#if DBG_KLOGAGENT
+#define PRINT(fmt, args...)     printf(fmt, ##args)
+#else
+#define PRINT(fmt, args...)
+#endif
 
 char log_buffer[LOGBUFFER_SIZE];
 
@@ -31,7 +38,7 @@ int klogagent_main(int argc, char* argv[])
     int ret;
     memset(log_buffer, 0, sizeof(log_buffer));
     /* Connect to the server using TCP socket */
-    /*
+    //*
     tcpCliSock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serAddr;
     char *serIP = "10.0.2.2";
@@ -46,7 +53,7 @@ int klogagent_main(int argc, char* argv[])
         printf("Failed to conncet to %s:%d\n", inet_ntoa(serAddr.sin_addr.s_addr), serPORT);
         exit(-1);
     }
-    */
+    //*/
     /* Transer logs to server */
     //int fd = STDOUT_FILENO;
     printf("Kernel logs:\n");
@@ -96,7 +103,9 @@ int log_proc(int fd, int size)
     int loglen = size;
     int rc = 0;
     char* pbuf = log_buffer;
+
     char filter_buffer[LOGBUFFER_SIZE];
+    char *pfbuf = filter_buffer;
     char *entry, *entry_end;
     /* Filter based on UID */
     int log_level;
@@ -107,19 +116,25 @@ int log_proc(int fd, int size)
     char temp[32], *ptemp;
     int len;
 
+
+    
     entry_end = pbuf;
-    printf("Read kbuffer %d\n", loglen);
+    printf("******************** Read kbuffer %d***************************\n", loglen);
     while(loglen>0) {
-        while(*entry_end++ != '<') loglen--;
+        while(*entry_end++ != '<' && --loglen);
+        if(!loglen) break;
         entry = entry_end-1;
         // log-level
-        log_level = *entry_end++ - '0';
-        printf("log-level=%d\n", log_level);
+        log_level = *entry_end++ - '0'; loglen--;
+        PRINT("log-level=%d\n", log_level);
 
-        while(*entry_end++ != '>') loglen--;
+        while(*entry_end++ != '>' &&  --loglen);
+        if(!loglen) break;
         // timestamp
-        while(*entry_end++ != '[') loglen--;
-        while(*entry_end++ != ']') loglen--;
+        while(*entry_end++ != '[' && --loglen);
+        if(!loglen) break;
+        while(*entry_end++ != ']' && --loglen);
+        if(!loglen) break;
 
         entry_end++; loglen--;   // blank
         // KLOG_TAG
@@ -127,81 +142,91 @@ int log_proc(int fd, int size)
             loglen--; continue;
         }
         ptag = entry_end;
-        while(*entry_end++ != ']') loglen--;
+        while(*entry_end++ != ']' && --loglen);
+        if(!loglen) break;
         len = entry_end-1-ptag;
         memcpy(ktag, ptag, len);
         *(ktag+len) = '\0';
-        printf("TAG=%s\n", ktag);
-        if(strcmp(ktag, "KLOG") != 0)  continue;
+        PRINT("TAG=%s\n", ktag);
+        if(strcmp(ktag, "KLOG") != 0)  {
+            printf("Not KLOG but %s\n", ktag);
+            continue;
+        }
+
         // local-time
-        while(*entry_end++ != '[') {
-            loglen--;
-            if(!loglen) goto end;
+        while(*entry_end++ != '[' && --loglen);
+        if(!loglen) break;
+        ptemp = entry_end;
+        
+        while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
+        len = entry_end - ptemp - 1;
+        if(len > 32) {
+            PRINT("Localtime entry exceeds buffer size\n");
+            continue;
         }
-        while(*entry_end++ != ']') {
-            loglen--;
-            if(!loglen) goto end;
-        }
+        memcpy(temp, ptemp, len);
+        ptemp = temp;
+        *(ptemp+len) = '\0';
+        PRINT("LocalTime=%s\n", ptemp);
         // PID
-        while(*entry_end++ != '[') {
-            loglen--;
-            if(!loglen) goto end;
-        }
+        while(*entry_end++ != '[' && --loglen) ;
+        if(!loglen) break;
+        entry_end+=5; loglen-=5;  // Skip PID:
         ptemp = entry_end;
-        while(*entry_end++ != ']') {
-            loglen--;
-            if(!loglen) goto end;
-        }
+
+        while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
         len = entry_end - ptemp -1; 
         memcpy(temp, ptemp, len);
+        ptemp = temp;
         *(ptemp+len) = '\0';
-        printf("PID=%d\n", atoi(ptemp));
+        pid = atoi(ptemp);
+        PRINT("PID=%d\n", pid);
         // UID
-        while(*entry_end++ != '[') {
-            loglen--;
-            if(!loglen) goto end;
-        }
+        while(*entry_end++ != '[' && --loglen) ;
+        if(!loglen) break;
+        entry_end+=5; loglen-=5;  // Skip UID: 
         ptemp = entry_end;
-        while(*entry_end++ != ']') {
-            loglen--;
-            if(!loglen) goto end;
-        }
+        while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
         len = entry_end - ptemp -1; 
         memcpy(temp, ptemp, len);
+        ptemp = temp;
         *(ptemp+len) = '\0';
-        printf("UID=%d\n", atoi(ptemp));
+        uid = atoi(ptemp);
+        PRINT("UID=%d\n", uid);
         // system-call
-        while(*entry_end++ != '[') {
-            loglen--;
-            if(!loglen) goto end;
-        }
+        while(*entry_end++ != '[' && --loglen) ;
+        if(!loglen) break;
         ptemp = entry_end;
-        while(*entry_end++ != ']') {
-            loglen--;
-            if(!loglen) goto end;
-        }
+        while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
         len = entry_end - ptemp -1;
         memcpy(temp, ptemp, len);
+        ptemp = temp;
         *(ptemp+len) = '\0';
-        printf("SYSCALL=%s\n", ptemp);
+        PRINT("SYSCALL=%s\n", ptemp);
         // parameters 
-        while(*entry_end++ != '[') {
-            loglen--;
-            if(!loglen) goto end;
+        while(*entry_end++ != '[' && --loglen) ;
+        if(!loglen) break;
+        while(*entry_end++ != ']' && --loglen) ;
+
+        if(uid== 0) {
+            len = entry_end - entry + 1;
+            memcpy(pfbuf, entry, len);
+            pfbuf += len;
         }
-        while(*entry_end++ != ']') {
-            loglen--;
-            if(!loglen) goto end;
-        }
-end:
-    printf("Not completed\n");
+
     }
-    return 0;
+    /* Transfer filterred logs to server */
+    loglen = pfbuf-filter_buffer;
+    pfbuf = filter_buffer;
     while(loglen) {
         /* Add filter */
          
         /* Send log to server */
-        rc = write(fd, pbuf, loglen);
+        rc = write(fd, pfbuf, loglen);
         if(rc == -1) {
             if(errno == EINTR) continue;
             else {
@@ -210,7 +235,7 @@ end:
             }
         }
         loglen -= rc;
-        pbuf += rc;
+        pfbuf += rc;
         fsync(fd);
     }
     return 0;

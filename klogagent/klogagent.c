@@ -42,7 +42,8 @@ int klogagent_main(int argc, char* argv[])
     tcpCliSock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serAddr;
     //char *serIP = "10.0.2.2";
-    char *serIP = "24.238.102.33";  // Beech IP
+    //char *serIP = "24.238.102.33";  // Beech IP
+    char *serIP = "129.32.94.230";   // Lab IP
     short serPORT = 8888;
     serAddr.sin_family = AF_INET;
     serAddr.sin_addr.s_addr = inet_addr(serIP);

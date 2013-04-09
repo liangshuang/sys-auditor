@@ -123,8 +123,8 @@ logger_write(int fd, char *buf, size_t count)
     ret = orig_write(fd, buf, count);
     callTime = get_time();
     /* Add log entry */
-    printk(KERN_INFO "[%d:%d:%d] [PID: %d] [UID: %d] [WRITE] [%s]\n", callTime.hour, \
-        callTime.min, callTime.sec, current->pid, current_uid(), buf);
+    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [WRITE] []\n", KLOG_TAG, callTime.hour, \
+        callTime.min, callTime.sec, current->pid, current_uid());
     return ret;
 }
 
@@ -180,8 +180,8 @@ logger_close(int fd)
 // Initialize and start system call hooker
 //------------------------------------------------------------------------------
 //#define TABLE_ADDR 0xc000eb84       // Lab:Goldfish Kernel
-//#define TABLE_ADDR 0xc0010568
-#define TABLE_ADDR 0xc000e168       // Home:Mako Kernel
+#define TABLE_ADDR 0xc0010568         // Lab:Mako Kernel
+//#define TABLE_ADDR 0xc000e168       // Home:Mako Kernel
 static int __init
 logger_start(void)
 {
@@ -191,10 +191,10 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
+//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
 
-//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;
@@ -220,8 +220,8 @@ logger_stop(void)
     }
 
     sys_call_table[__NR_read] = orig_read;
-    sys_call_table[__NR_write] = orig_write;
 //*/
+    sys_call_table[__NR_write] = orig_write;
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;
     printk(KERN_NOTICE "Stop logger\n");

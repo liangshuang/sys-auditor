@@ -121,7 +121,7 @@ int log_proc(int fd, int size)
 
     
     entry_end = pbuf;
-    printf("******************** Read kbuffer %d***************************\n", loglen);
+    PRINT("******************** Read kbuffer %d***************************\n", loglen);
     while(loglen>0) {
         while(*entry_end++ != '<' && --loglen);
         if(!loglen) break;
@@ -180,6 +180,10 @@ int log_proc(int fd, int size)
         while(*entry_end++ != ']' && --loglen) ;
         if(!loglen) break;
         len = entry_end - ptemp -1; 
+        if(len > 32) {
+            PRINT("Localtime entry exceeds buffer size\n");
+            continue;
+        }
         memcpy(temp, ptemp, len);
         ptemp = temp;
         *(ptemp+len) = '\0';
@@ -193,6 +197,10 @@ int log_proc(int fd, int size)
         while(*entry_end++ != ']' && --loglen) ;
         if(!loglen) break;
         len = entry_end - ptemp -1; 
+        if(len > 32) {
+            PRINT("Localtime entry exceeds buffer size\n");
+            continue;
+        }
         memcpy(temp, ptemp, len);
         ptemp = temp;
         *(ptemp+len) = '\0';
@@ -205,6 +213,11 @@ int log_proc(int fd, int size)
         while(*entry_end++ != ']' && --loglen) ;
         if(!loglen) break;
         len = entry_end - ptemp -1;
+        if(len > 32) {
+            PRINT("Localtime entry exceeds buffer size\n");
+            continue;
+        }
+
         memcpy(temp, ptemp, len);
         ptemp = temp;
         *(ptemp+len) = '\0';
@@ -213,9 +226,11 @@ int log_proc(int fd, int size)
         while(*entry_end++ != '[' && --loglen) ;
         if(!loglen) break;
         while(*entry_end++ != ']' && --loglen) ;
+        if(!loglen) break;
 
-        if(uid== 0) {
+        if(uid == 10023) {
             len = entry_end - entry + 1;
+            if(len > LOGBUFFER_SIZE) continue;
             memcpy(pfbuf, entry, len);
             pfbuf += len;
         }

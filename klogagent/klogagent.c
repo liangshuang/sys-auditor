@@ -15,28 +15,71 @@
 #include <netinet/in.h>
 
 #include <string.h>
-/*********************** Global Variables and Declarations ********************/
+/****************************** Global Declarations ***************************/
+#define MX_UIDS    32
 #define LOGBUFFER_SIZE 4096
-#define DBG_KLOGAGENT   0
 
-#if DBG_KLOGAGENT
-#define PRINT(fmt, args...)     printf(fmt, ##args)
+#define FALSE   0
+#define TRUE    !FALSE
+// Debug
+#define DEBUG_KLOG   1
+#if DEBUG_KLOG
+#define PRINT(enable, fmt, args...)     if(enable) printf(fmt, ##args)
 #else
-#define PRINT(fmt, args...)
+#define PRINT(enable, fmt, args...)
 #endif
+/******************************** Global Variables ****************************/
+char log_buffer[LOGBUFFER_SIZE+1];
+int UidList[MX_UIDS];
+int uid_cnt = 0;
 
-char log_buffer[LOGBUFFER_SIZE];
-
+int debug_en = FALSE;
 /************************** Function Protocalls *******************************/
 int klog_dump(int fd);
 int log_proc(int fd, int size);
 
 /******************************** Program Entry *******************************/
+void print_help()
+{
+    printf("Klog Agent v1.0 for Android Emulator\n");
+    printf("Usage:\n");
+    printf("klogagent <uid 1> [uid 2] ... [uid n]\n");
+    printf("\n");
+
+}
 int klogagent_main(int argc, char* argv[])
+//int main(int argc, char* argv[])
 {
     int tcpCliSock;
     int ret;
+    int i;
+    /* Initialize */
     memset(log_buffer, 0, sizeof(log_buffer));
+    memset(UidList, 0, sizeof(UidList));
+    /* Parse command parameters */
+    switch(argc){
+    case 1:
+        print_help();
+        return 0;
+    default:
+        for(i = 1; i < argc; i++) {
+            if(strcmp("-u", argv[i]) == 0) {
+                i++;
+                UidList[uid_cnt++] = atoi(argv[i]);
+            }
+            else if(strcmp(argv[i], "-d") == 0) {
+                debug_en = TRUE;
+            }
+        }
+        printf("Klog Agent v1.0 for Android Emulator\n");
+        printf("Monitoring Apps: ");
+        for(i = 0; i < uid_cnt; i++) {
+            printf("%d ", UidList[i]);
+        }
+        printf("\n");
+        if(debug_en) printf("Debug enabled.\n");
+        printf("\n");
+    }
     /* Connect to the server using TCP socket */
     //*
     tcpCliSock = socket(AF_INET, SOCK_STREAM, 0);
@@ -56,7 +99,7 @@ int klogagent_main(int argc, char* argv[])
     //*/
     /* Transer logs to server */
     //int fd = STDOUT_FILENO;
-    printf("Kernel logs:\n");
+    //printf("Kernel logs:\n");
     while(!klog_dump(tcpCliSock));
     return 0;
 }
@@ -98,6 +141,18 @@ int klog_dump(int fd)
 //------------------------------------------------------------------------------
 // Preprocess logs before send out
 //------------------------------------------------------------------------------
+
+int filter_uid(int uid)
+{
+    int i;
+    for(i = 0; i < uid_cnt; i++) {
+        if(UidList[i] == uid) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 int log_proc(int fd, int size)
 {
     int loglen = size;
@@ -113,106 +168,195 @@ int log_proc(int fd, int size)
     char *local_time;
     int pid, uid;
     char *syscall;
-    char temp[32], *ptemp;
+#define MAX_FIELD_LEN   32
+    char temp[MAX_FIELD_LEN+1], *ptemp;
     int len;
-
-
-    
+   
     entry_end = pbuf;
-    printf("******************** Read kbuffer %d***************************\n", loglen);
+    //printf("******************** Read kbuffer %d***************************\n", loglen);
     while(loglen>0) {
-        while(*entry_end++ != '<' && --loglen);
+        while(loglen && *entry_end != '<') {
+            entry_end++; loglen--;
+        };
         if(!loglen) break;
-        entry = entry_end-1;
+        entry = entry_end;  // Start of next entry
+        entry_end++; loglen--;
+
         // log-level
-        log_level = *entry_end++ - '0'; loglen--;
-        PRINT("log-level=%d\n", log_level);
+        log_level = *entry_end - '0'; 
+        entry_end++; loglen--;
+        
+        PRINT(debug_en, "log-level=%d\n", log_level);
 
-        while(*entry_end++ != '>' &&  --loglen);
-        if(!loglen) break;
-        // timestamp
-        while(*entry_end++ != '[' && --loglen);
-        if(!loglen) break;
-        while(*entry_end++ != ']' && --loglen);
-        if(!loglen) break;
-
-        entry_end++; loglen--;   // blank
-        // KLOG_TAG
-        if(*entry_end++ != '[') {
-            loglen--; continue;
+        while(loglen && *entry_end != '>') {
+            entry_end++; loglen--;
         }
-        ptag = entry_end;
-        while(*entry_end++ != ']' && --loglen);
         if(!loglen) break;
+        entry_end++; loglen--;
+
+        // timestamp
+        while(loglen && *entry_end != '[') {
+            entry_end++; loglen--;
+        }
+        if(!loglen) break;
+        entry_end++; loglen--;
+
+        while(loglen && *entry_end != ']') {
+            entry_end++; loglen--;
+        }
+        if(!loglen) break;
+        entry_end++; loglen--;
+        // KLOG_TAG
+        while(loglen && *entry_end != '[') {
+            entry_end++; loglen--;;
+        }
+        if(!loglen) break;
+        entry_end++; loglen--;
+        ptag = entry_end;
+
+        while(loglen && *entry_end != ']') {
+            entry_end++; loglen--;
+        }
+        if(!loglen) break;
+        entry_end++; loglen--;
+
         len = entry_end-1-ptag;
+        if(len > MAX_FIELD_LEN) {
+            PRINT(debug_en, "TAG entry exceeds buffer size\n");
+            continue;
+        }
+
         memcpy(ktag, ptag, len);
         *(ktag+len) = '\0';
-        PRINT("TAG=%s\n", ktag);
+        PRINT(debug_en, "TAG=%s\n", ktag);
         if(strcmp(ktag, "KLOG") != 0)  {
-            printf("Not KLOG but %s\n", ktag);
+            PRINT(debug_en, "Not KLOG but %s\n", ktag);
             continue;
         }
 
         // local-time
-        while(*entry_end++ != '[' && --loglen);
+        while(loglen && *entry_end != '[') {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
+        entry_end++; loglen--;
         ptemp = entry_end;
         
-        while(*entry_end++ != ']' && --loglen) ;
+        while(loglen && *entry_end != ']') {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
+        entry_end++; loglen--;
         len = entry_end - ptemp - 1;
-        if(len > 32) {
-            PRINT("Localtime entry exceeds buffer size\n");
+        if(len > MAX_FIELD_LEN) {
+            PRINT(debug_en, "Localtime entry exceeds buffer size\n");
             continue;
         }
         memcpy(temp, ptemp, len);
         ptemp = temp;
         *(ptemp+len) = '\0';
-        PRINT("LocalTime=%s\n", ptemp);
+        PRINT(debug_en, "LocalTime=%s\n", ptemp);
         // PID
-        while(*entry_end++ != '[' && --loglen) ;
+        while(loglen && *entry_end != '[') {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
+        entry_end++; loglen--;
         entry_end+=5; loglen-=5;  // Skip PID:
         ptemp = entry_end;
 
-        while(*entry_end++ != ']' && --loglen) ;
+        while(loglen && *entry_end != ']')  {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
+        entry_end++; loglen--;
         len = entry_end - ptemp -1; 
+        if(len > MAX_FIELD_LEN) {
+            PRINT(debug_en, "PID entry exceeds buffer size\n");
+            continue;
+        }
         memcpy(temp, ptemp, len);
         ptemp = temp;
         *(ptemp+len) = '\0';
         pid = atoi(ptemp);
-        PRINT("PID=%d\n", pid);
+        PRINT(debug_en, "PID=%d\n", pid);
         // UID
-        while(*entry_end++ != '[' && --loglen) ;
+        while(loglen && *entry_end != '[') {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
+        entry_end++; loglen--;
         entry_end+=5; loglen-=5;  // Skip UID: 
         ptemp = entry_end;
-        while(*entry_end++ != ']' && --loglen) ;
+        while(loglen && *entry_end != ']') {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
+        entry_end++; loglen--;
         len = entry_end - ptemp -1; 
+        if(len > MAX_FIELD_LEN) {
+            PRINT(debug_en, "UID entry exceeds buffer size\n");
+            continue;
+        }
+
         memcpy(temp, ptemp, len);
         ptemp = temp;
         *(ptemp+len) = '\0';
         uid = atoi(ptemp);
-        PRINT("UID=%d\n", uid);
+        PRINT(debug_en, "UID=%d\n", uid);
         // system-call
-        while(*entry_end++ != '[' && --loglen) ;
+        while(loglen && *entry_end != '[') {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
+        entry_end++; loglen--;
         ptemp = entry_end;
-        while(*entry_end++ != ']' && --loglen) ;
+        while(loglen && *entry_end != ']')  {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
+        entry_end++; loglen--;
         len = entry_end - ptemp -1;
+        if(len > MAX_FIELD_LEN) {
+            PRINT(debug_en, "SYSCALL entry exceeds buffer size\n");
+            continue;
+        }
+
         memcpy(temp, ptemp, len);
         ptemp = temp;
         *(ptemp+len) = '\0';
-        PRINT("SYSCALL=%s\n", ptemp);
+        PRINT(debug_en, "SYSCALL=%s\n", ptemp);
         // parameters 
-        while(*entry_end++ != '[' && --loglen) ;
+        char param_buf[512];
+        while(loglen && *entry_end != '[') {
+            entry_end++; loglen--;
+        }
         if(!loglen) break;
-        while(*entry_end++ != ']' && --loglen) ;
+        entry_end++; loglen--;
 
-        if(uid== 0) {
+        ptemp = entry_end;
+        while(loglen && *entry_end != ']') {
+            entry_end++; loglen--;
+        }
+        if(!loglen) break;
+        entry_end++; loglen--;
+        len = entry_end - ptemp -1;
+
+        if(len > 512) {
+            PRINT(debug_en, "SYSCALL entry exceeds buffer size\n");
+            continue;
+        }
+        memcpy(param_buf, ptemp, len);
+        ptemp = param_buf;
+        *(ptemp+len) = '\0';
+        /* Filter by uid */
+        if(filter_uid(uid)) {
+            len = entry_end - entry + 1;
+            memcpy(pfbuf, entry, len);
+            pfbuf += len;
+        }
+        /* Filter by paramater */
+        if(strstr(param_buf, "AT")) {
             len = entry_end - entry + 1;
             memcpy(pfbuf, entry, len);
             pfbuf += len;

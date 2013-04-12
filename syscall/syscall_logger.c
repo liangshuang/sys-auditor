@@ -120,10 +120,14 @@ logger_write(int fd, char *buf, size_t count)
 {
     ssize_t ret;
     struct time_m callTime;
+    //char tmp_buf[4096];
+    //memcpy(tmp_buf, buf, count);
+    //__copy_from_user(tmp_buf, buf, count);
+    //tmp_buf[count] = '\0';
     ret = orig_write(fd, buf, count);
     callTime = get_time();
     /* Add log entry */
-    printk(KERN_INFO "[%d:%d:%d] [PID: %d] [UID: %d] [WRITE] [%s]\n", callTime.hour, \
+    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [WRITE] [%s]\n", KLOG_TAG, callTime.hour, \
         callTime.min, callTime.sec, current->pid, current_uid(), buf);
     return ret;
 }
@@ -190,10 +194,9 @@ logger_start(void)
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
+//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
-
-//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;
@@ -219,8 +222,8 @@ logger_stop(void)
     }
 
     sys_call_table[__NR_read] = orig_read;
-    sys_call_table[__NR_write] = orig_write;
 //*/
+    sys_call_table[__NR_write] = orig_write;
     sys_call_table[__NR_open] = orig_open;
     sys_call_table[__NR_close] = orig_close;
     printk(KERN_NOTICE "Stop logger\n");

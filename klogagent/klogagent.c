@@ -125,7 +125,10 @@ int klog_dump(int fd)
 */
 
     int logcnt = 0;
+    /* Read from kernel buffer */
     logcnt = klogctl(2, log_buffer, sizeof(log_buffer)); 
+    /* Read from internal buffer */
+
     if(logcnt < 0) {
         if(errno == EINTR) {
             return 0;

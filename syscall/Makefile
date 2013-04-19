@@ -1,4 +1,6 @@
-obj-m += syscall_logger.o
+obj-m += klogger.o
+klogger-objs := syscall_basic.o klogger_basic.o
+
 KERNEL_DIR=~/Working/workspace/android/kernels/goldfish/
 #KERNEL_DIR=~/Working/workspace/android/kernels/lge/msm
 

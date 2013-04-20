@@ -3,12 +3,9 @@
 #include <linux/time.h>
 #include <linux/cred.h>             /* For UID */
 #include <linux/sched.h>            /* current */
+#include "klogger.h"
+#include "syscall_klog.h"
 /********************************** Definitions ******************************/
-struct time_m{
-    int hour;
-    int min;
-    int sec;
-};
 
 /******************************** Declarations ********************************/
 #define SYSCALL_TBL_ADDR 0xc000eb84
@@ -20,8 +17,6 @@ asmlinkage ssize_t (*orig_close)(int fd);
 
 asmlinkage int (*orig_socketcall)(int call, unsigned long *args);
 asmlinkage int (*orig_socket)(int family, int type, int protocol);
-
-#define KLOG_TAG    "KLOG"
 
 /********************************* Function Entry ******************************/
 
@@ -49,8 +44,21 @@ struct time_m get_time(void)
     callTime.sec = sec;
     return callTime;
 }
+inline static void add_log_entry(enum klog_type type, char* param, int param_size)
+{
+    struct klog_entry e;
 
+    e.type = type;
+    e.ts = get_time();
+    e.pid = current->pid;
+    e.uid = current_uid();
+    e.param_size = param_size;
 
+    logfifo_write(&e, sizeof(e)); 
+    if(param_size > 0)
+        logfifo_write(param, param_size);
+
+}
 //------------------------------------------------------------------------------
 // Hooked write for logger
 //------------------------------------------------------------------------------
@@ -58,12 +66,8 @@ asmlinkage ssize_t
 logger_write(int fd, char *buf, size_t count)
 {
     ssize_t ret;
-    struct time_m callTime;
     ret = orig_write(fd, buf, count);
-    callTime = get_time();
-    /* Add log entry */
-    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [WRITE] [%s]\n", KLOG_TAG, callTime.hour, \
-        callTime.min, callTime.sec, current->pid, current_uid(), buf);
+    add_log_entry(MYKLOG_WRITE, buf, count);
     return ret;
 }
 
@@ -74,14 +78,8 @@ asmlinkage ssize_t
 logger_read(int fd, char *buf, size_t count)
 {
     ssize_t ret;
-    struct time_m callTime;
     ret = orig_read(fd, buf, count);
-    //char* p = buf;
-    //*
-    callTime = get_time();
-    printk(KERN_INFO "%d:%d:%d READ:\n", callTime.hour, callTime.min, callTime.sec);
-    //printk("READ\n");
-    //*/
+    add_log_entry(MYKLOG_READ, buf, count);
     return ret;
 }
 
@@ -94,9 +92,7 @@ logger_open(const char *pathname, int flags)
     struct time_m callTime = get_time();
     ssize_t ret;
     ret = orig_open(pathname, flags);
-    /* Add log entry */
-    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [OPEN] [%s]\n", KLOG_TAG, callTime.hour, \
-        callTime.min, callTime.sec, current->pid, current_uid(), pathname);
+    add_log_entry(MYKLOG_OPEN, pathname, strlen(pathname));
     return ret;
 }
 
@@ -106,12 +102,10 @@ logger_open(const char *pathname, int flags)
 asmlinkage ssize_t
 logger_close(int fd)
 {
-    struct time_m callTime = get_time();
     ssize_t ret;
     ret = orig_close(fd);
     /* Add log entry */
-    printk(KERN_INFO "[%s] [%d:%d:%d] [PID: %d] [UID: %d] [CLOSE] []\n", KLOG_TAG, callTime.hour, \
-        callTime.min, callTime.sec, current->pid, current_uid());
+    add_log_entry(MYKLOG_CLOSE, NULL, 0);
     return ret;
 }
 
@@ -153,41 +147,43 @@ logger_socket(int family, int type, int protocol)
 }
 #endif
 
+
+
 //------------------------------------------------------------------------------
 // Initialize and start system call hooker
 //------------------------------------------------------------------------------
-static int __init
-hook_start(void)
+int __init hook_start(void)
 {
     /* Start system call hooks */
     void **sys_call_table = (void**)SYSCALL_TBL_ADDR;
+    printk(KERN_NOTICE "Install hooker...\n");
     // Read
 /*
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = logger_read;
 
-//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = logger_write;
-    /*
+
+//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = logger_open;
+    /*
     // Close
     orig_close = sys_call_table[__NR_close];
     sys_call_table[__NR_close] = logger_close;
 //*/
-    printk(KERN_NOTICE "Start logger\n");
     return 0;
 }
 
 //------------------------------------------------------------------------------
 // Stop logger and restore sys_call_table
 //------------------------------------------------------------------------------
-static void __exit
-hook_stop(void)
+void __exit hook_stop(void)
 {
     void **sys_call_table = (void**)SYSCALL_TBL_ADDR;
+    printk(KERN_NOTICE "Remove hooker\n");
 /*
     if(sys_call_table[__NR_read] != logger_read) {
         printk("<1>Read system call was hooked by other program\n");
@@ -195,11 +191,10 @@ hook_stop(void)
     }
 
     sys_call_table[__NR_read] = orig_read;
-//*/
     sys_call_table[__NR_write] = orig_write;
-    /*
+//*/
     sys_call_table[__NR_open] = orig_open;
+    /*
     sys_call_table[__NR_close] = orig_close;
     */
-    printk(KERN_NOTICE "Stop logger\n");
 }

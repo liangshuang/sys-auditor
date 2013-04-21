@@ -45,12 +45,14 @@ void print_help()
 {
     printf("Klog Agent v1.0 for Android Emulator\n");
     printf("Usage:\n");
-    printf("klogagent <uid 1> [uid 2] ... [uid n]\n");
+    printf("\tklogagent <-u uid1> [-u uid2] ... [-u uidn] [-d]\n");
+    printf("Options:\n");
+    printf("\t-u - specify the app's uids to monitor\n");
+    printf("\t-d - enable printing debug messages\n");
     printf("\n");
 
 }
 int klogagent_main(int argc, char* argv[])
-//int main(int argc, char* argv[])
 {
     int tcpCliSock;
     int ret;
@@ -73,11 +75,17 @@ int klogagent_main(int argc, char* argv[])
             }
         }
         printf("Klog Agent v1.0 for Android Emulator\n");
-        printf("Monitoring Apps: ");
-        for(i = 0; i < uid_cnt; i++) {
-            printf("%d ", UidList[i]);
+        if(uid_cnt > 0) {
+            printf("Monitoring Apps: ");
+            for(i = 0; i < uid_cnt; i++) {
+                printf("%d ", UidList[i]);
+            }
+            printf("\n");
         }
-        printf("\n");
+        else {
+            print_help();
+            return 0;
+        }
         if(debug_en) printf("Debug enabled.\n");
         printf("\n");
     }
@@ -101,7 +109,7 @@ int klogagent_main(int argc, char* argv[])
 
     /* Transer logs to server */
     //int fd = STDOUT_FILENO;
-    int debugfd = open("/sys/kernel/debug/klogger", O_RDONLY);
+    int debugfd = open("/sys/kernel/debug/klogger", O_RDWR);
     printf("%d\n", debugfd);
     //printf("Kernel logs:\n");
     while(!klog_dump(debugfd, tcpCliSock));
@@ -114,15 +122,18 @@ int klog_dump(int in_fd, int out_fd)
 {
     int res; 
     char klog_buf[ENTRY_BUFSIZE];
-    struct klog_entry *pentry = klog_buf;
-
-    res = read(in_fd, klog_buf, sizeof(struct klog_entry));
+    struct klog_entry *pentry;
+    struct klog_entry e;
+    lseek(in_fd, 0, SEEK_SET);    
+    res = read(in_fd, &e, sizeof(struct klog_entry));
     if(res == -1) {
         printf("Read error!!\n");
         return -1;
     }
-    
-    switch(pentry->type) {
+    if(res != sizeof(struct klog_entry)) 
+        return 0;
+
+    switch(e.type) {
     case MYKLOG_WRITE:
         PRINT("WRITE\n");
         break;
@@ -137,10 +148,17 @@ int klog_dump(int in_fd, int out_fd)
         break;
     default:
         PRINT("Unknown Call\n");
+        //write(in_fd, NULL, 0);
+        return 0;
     }
-    if(pentry->param_size > 0) {
-        res = read(in_fd, pentry->param, pentry->param_size);
-        printf("%s\n", pentry->param);
+    PRINT("Time: %d:%d:%d\n", e.ts.hour, e.ts.min, e.ts.sec);    
+    PRINT("PID: %d, UID: %d\n", e.pid, e.uid);
+    printf("PARAM SIZE: %d\n",  e.param_size);
+
+    if(e.param_size > 0) {
+        res = read(in_fd, klog_buf, e.param_size);
+        //klog_buf[e.param_size] = '\0';
+        //printf("%s\n", klog_buf);
     }
     return 0;
 }

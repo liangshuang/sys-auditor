@@ -53,8 +53,8 @@ inline static void add_log_entry(enum klog_type type, char* param, int param_siz
     e.pid = current->pid;
     e.uid = current_uid();
     e.param_size = param_size;
-
     logfifo_write(&e, sizeof(e)); 
+
     if(param_size > 0)
         logfifo_write(param, param_size);
 
@@ -63,7 +63,7 @@ inline static void add_log_entry(enum klog_type type, char* param, int param_siz
 // Hooked write for logger
 //------------------------------------------------------------------------------
 asmlinkage ssize_t 
-logger_write(int fd, char *buf, size_t count)
+hooked_write(int fd, char *buf, size_t count)
 {
     ssize_t ret;
     ret = orig_write(fd, buf, count);
@@ -75,7 +75,7 @@ logger_write(int fd, char *buf, size_t count)
 // Hooked read for logger
 //------------------------------------------------------------------------------
 asmlinkage ssize_t
-logger_read(int fd, char *buf, size_t count)
+hooked_read(int fd, char *buf, size_t count)
 {
     ssize_t ret;
     ret = orig_read(fd, buf, count);
@@ -87,7 +87,7 @@ logger_read(int fd, char *buf, size_t count)
 // hooked open for logger
 //------------------------------------------------------------------------------
 asmlinkage ssize_t
-logger_open(const char *pathname, int flags)
+hooked_open(const char *pathname, int flags)
 {
     struct time_m callTime = get_time();
     ssize_t ret;
@@ -100,7 +100,7 @@ logger_open(const char *pathname, int flags)
 // hooked close for logger
 //------------------------------------------------------------------------------
 asmlinkage ssize_t
-logger_close(int fd)
+hooked_close(int fd)
 {
     ssize_t ret;
     ret = orig_close(fd);
@@ -115,7 +115,7 @@ logger_close(int fd)
 // Notice: sockcall appliable only for some arch
 //------------------------------------------------------------------------------
 asmlinkage int
-logger_socketcall(int call, unsigned long * args)
+hooked_socketcall(int call, unsigned long * args)
 {
     struct time_m callTime = get_time();
     switch(call){
@@ -139,7 +139,7 @@ logger_socketcall(int call, unsigned long * args)
 // socket
 //------------------------------------------------------------------------------
 asmlinkage int
-logger_socket(int family, int type, int protocol)
+hooked_socket(int family, int type, int protocol)
 {
     struct time_m callTime = get_time();
     printk(KERN_INFO "%d:%d:%d SOCKET:\n", callTime.hour, callTime.min, callTime.sec);
@@ -160,19 +160,19 @@ int __init hook_start(void)
     // Read
 /*
     orig_read = sys_call_table[__NR_read];
-    sys_call_table[__NR_read] = logger_read;
+    sys_call_table[__NR_read] = hooked_read;
 
     orig_write = sys_call_table[__NR_write];
-    sys_call_table[__NR_write] = logger_write;
+    sys_call_table[__NR_write] = hooked_write;
 
 //*/
     // Open
     orig_open = sys_call_table[__NR_open];
-    sys_call_table[__NR_open] = logger_open;
+    sys_call_table[__NR_open] = hooked_open;
     /*
     // Close
     orig_close = sys_call_table[__NR_close];
-    sys_call_table[__NR_close] = logger_close;
+    sys_call_table[__NR_close] = hooked_close;
 //*/
     return 0;
 }
@@ -185,7 +185,7 @@ void __exit hook_stop(void)
     void **sys_call_table = (void**)SYSCALL_TBL_ADDR;
     printk(KERN_NOTICE "Remove hooker\n");
 /*
-    if(sys_call_table[__NR_read] != logger_read) {
+    if(sys_call_table[__NR_read] != hooked_read) {
         printk("<1>Read system call was hooked by other program\n");
         printk("<1>Remove will cause read system call in an unstable state\n");
     }

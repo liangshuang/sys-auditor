@@ -32,7 +32,7 @@ MODULE_AUTHOR("Lexon");
 
 /********************************** Declarations  *****************************/
 
-#define KLOG_QUEUE_SIZE     ((2<<10)*512)   /* 512KB */
+#define KLOG_QUEUE_SIZE     ((1<<20))   /* 512KB */
 char Queue_buf[KLOG_QUEUE_SIZE] = {0};
 
 struct kfifo klog_fifo;
@@ -48,7 +48,7 @@ static ssize_t logger_read(struct file *file, char __user *userbuf,
     size_t ret;
     //return simple_read_from_buffer(userbuf, count, ppos, mybuf, 200);
     static char tmp[KLOG_QUEUE_SIZE] = {0};
-    printk(KERN_WARNING "klogger: read by debugfs...\n");
+    //printk(KERN_WARNING "klogger: read by debugfs...\n");
     size_t available = kfifo_len(&klog_fifo);
 
     if(pos < 0)   
@@ -67,7 +67,7 @@ static ssize_t logger_read(struct file *file, char __user *userbuf,
         return -EFAULT;
     count -= ret;
     *ppos = pos + count;
-    printk(KERN_WARNING "klogger: read end\n");
+    //printk(KERN_WARNING "klogger: read end\n");
     return count;
 } 
 
@@ -86,8 +86,11 @@ static ssize_t logger_write(struct file *file, const char __user *buf,
     */
     if(pos < 0)
         return -EINVAL;
-    if(pos >= available || !count) 
+    if(pos >= available || !count) {
+        kfifo_reset(&klog_fifo);
         return 0;
+    }
+
     if(pos == 0) {
         if(count > available - pos)
             count = available - pos;
@@ -107,10 +110,12 @@ static ssize_t logger_write(struct file *file, const char __user *buf,
 ssize_t logfifo_write(const char *addr, size_t count)
 {
     size_t available = kfifo_avail(&klog_fifo);
+    //*
     if(count > available || !count) {
         kfifo_reset(&klog_fifo);
         return 0;
     }
+    //*/
     count = kfifo_in(&klog_fifo, addr, count);
     return count;
 }

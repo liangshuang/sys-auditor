@@ -156,6 +156,7 @@ int klog_dump(int in_fd, int out_fd)
     printf("PARAM SIZE: %d\n",  e.param_size);
 
     if(e.param_size > 0) {
+        lseek(in_fd, 0, SEEK_SET);
         res = read(in_fd, klog_buf, e.param_size);
         //klog_buf[e.param_size] = '\0';
         //printf("%s\n", klog_buf);

@@ -71,6 +71,16 @@ static ssize_t logger_read(struct file *file, char __user *userbuf,
     return count;
 } 
 
+//-----------------------------------------------------------------------------
+// Modified read for klog_entity
+//-----------------------------------------------------------------------------
+static ssize_t logger_block_read(struct file *file, char __user *userbuf, 
+                                    size_t count, loff_t *ppos)
+{
+
+    return count;
+}
+
 static ssize_t logger_write(struct file *file, const char __user *buf,
                                 size_t count, loff_t *ppos)
 {

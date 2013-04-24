@@ -1,6 +1,8 @@
 #ifndef SYSCALL_KLOG
 #define SYSCALL_KLOG
 /******************************** Exported Definitions ************************/
+#define PARAM_BUF_SIZE  128
+
 struct time_m{
     int hour;
     int min;
@@ -20,7 +22,7 @@ struct klog_entry {
     int pid;
     int uid;
     int param_size;
-    char param[0];
+    char param[PARAM_BUF_SIZE];
 };
 
 #endif // SYSCALL_KLOG

@@ -24,7 +24,9 @@
 #include <linux/debugfs.h>
 #include <linux/kfifo.h>
 #include <linux/fs.h>
+
 #include "klogger.h"
+#include "klog_queue.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Lexon");
@@ -72,12 +74,19 @@ static ssize_t logger_read(struct file *file, char __user *userbuf,
 } 
 
 //-----------------------------------------------------------------------------
-// Modified read for klog_entity
+// Modified read for klog queue
 //-----------------------------------------------------------------------------
 static ssize_t logger_block_read(struct file *file, char __user *userbuf, 
                                     size_t count, loff_t *ppos)
 {
+    int avail = klog_avail();
+    if(count == 0 || avail == 0)
+        return 0;
+    if(count > avail) 
+        count = avail;
 
+    printk("Read klogs: %d\n", count);
+    count = klog_dequeue_to_user(userbuf, count);
     return count;
 }
 
@@ -131,8 +140,9 @@ ssize_t logfifo_write(const char *addr, size_t count)
 }
 
 static const struct file_operations logger_fops = {
-    .read = logger_read,
-    .write = logger_write,
+    //.read = logger_read,
+    .read = logger_block_read,
+    .write = logger_write
 };
 
 //------------------------------------------------------------------------------

@@ -20,7 +20,7 @@
 #include "klogagent.h"
 /****************************** Global Declarations ***************************/
 #define MX_UIDS    32
-#define ENTRY_BUFSIZE   512
+#define KLOG_BUF_SIZE   64
 #define FALSE   0
 #define TRUE    !FALSE
 // Debug
@@ -121,45 +121,48 @@ int klogagent_main(int argc, char* argv[])
 int klog_dump(int in_fd, int out_fd)
 {
     int res; 
-    char klog_buf[ENTRY_BUFSIZE];
-    struct klog_entry *pentry;
+    struct klog_entry  klog_buf[KLOG_BUF_SIZE];
+    struct klog_entry *pe;
     struct klog_entry e;
-    lseek(in_fd, 0, SEEK_SET);    
-    res = read(in_fd, &e, sizeof(struct klog_entry));
+    int i = 0;
+    //lseek(in_fd, 0, SEEK_SET);    
+    res = read(in_fd, klog_buf, KLOG_BUF_SIZE);
     if(res == -1) {
         printf("Read error!!\n");
         return -1;
     }
-    if(res != sizeof(struct klog_entry)) 
+    if(res == 0) 
         return 0;
+    for(i = 0; i < res; i++) {
+        pe = &klog_buf[i];
+        switch(pe->type) {
+        case MYKLOG_WRITE:
+            PRINT("WRITE\n");
+            break;
+        case MYKLOG_READ:
+            PRINT("READ\n");
+            break;
+        case MYKLOG_OPEN:
+            PRINT("OPEN\n");
+            break;
+        case MYKLOG_CLOSE:
+            PRINT("CLOSE\n");
+            break;
+        default:
+            PRINT("Unknown Call\n");
+            //write(in_fd, NULL, 0);
+            return 0;
+        }
+        PRINT("Time: %d:%d:%d\n", pe->ts.hour, pe->ts.min, pe->ts.sec);    
+        PRINT("PID: %d, UID: %d\n", pe->pid, pe->uid);
+        printf("PARAM SIZE: %d\n",  pe->param_size);
 
-    switch(e.type) {
-    case MYKLOG_WRITE:
-        PRINT("WRITE\n");
-        break;
-    case MYKLOG_READ:
-        PRINT("READ\n");
-        break;
-    case MYKLOG_OPEN:
-        PRINT("OPEN\n");
-        break;
-    case MYKLOG_CLOSE:
-        PRINT("CLOSE\n");
-        break;
-    default:
-        PRINT("Unknown Call\n");
-        //write(in_fd, NULL, 0);
-        return 0;
-    }
-    PRINT("Time: %d:%d:%d\n", e.ts.hour, e.ts.min, e.ts.sec);    
-    PRINT("PID: %d, UID: %d\n", e.pid, e.uid);
-    printf("PARAM SIZE: %d\n",  e.param_size);
-
-    if(e.param_size > 0) {
-        lseek(in_fd, 0, SEEK_SET);
-        res = read(in_fd, klog_buf, e.param_size);
-        //klog_buf[e.param_size] = '\0';
-        //printf("%s\n", klog_buf);
+        if(pe->param_size > 0) {
+            lseek(in_fd, 0, SEEK_SET);
+            res = read(in_fd, klog_buf, pe->param_size);
+            //klog_buf[pe->param_size] = '\0';
+            //printf("%s\n", klog_buf);
+        }
     }
     return 0;
 }

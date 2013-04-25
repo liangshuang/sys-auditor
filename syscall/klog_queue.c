@@ -3,10 +3,19 @@
  * A circular queue structure for klog logs buffer
  * Author: Lexon <co.liang.ol@gmail.com>
  ******************************************************************************/
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/mm.h>
+#include <linux/string.h>
+#include <linux/stddef.h>
+#include <linux/kmod.h>
+#include <linux/fs.h>
+
 
 #include "syscall_klog.h"
-#include <linux/string.h>
 #include "klog_queue.h"
+#include <asm/uaccess.h>        /* copy_to_user */
+
 /******************************** Definitions *********************************/
 #define KLOG_QUEUE_SIZE     (1<<12)
 
@@ -24,6 +33,7 @@ int klog_enqueue(QueueItem *item)
         return 0;
     memcpy(&KlogQueue[rear], item, sizeof(QueueItem));
     rear = (rear + 1)  % KLOG_QUEUE_SIZE;
+    printk(KERN_INFO "enqueued, rear: %d\n", rear);
     return 1;
 }
 
@@ -47,6 +57,32 @@ int klog_dequeue(QueueItem *buf, int count)
     front = (front + count) % KLOG_QUEUE_SIZE;
     return count;
    
+}
+
+int klog_dequeue_to_user(char __user *userbuf, int count) 
+{
+    int avail = klog_avail();
+    int ret;
+    /* Check for available elements in the queue  */
+    if(count == 0 || avail == 0)
+        return 0;
+    if(count > avail)
+        count = avail;
+    /* From front to rear */
+    int forward = KLOG_QUEUE_SIZE - front;
+    if(count <= forward) {
+        ret = copy_to_user(userbuf, &KlogQueue[front], sizeof(QueueItem)*count);
+        count -= ret;
+    }
+    /* Read wrap back */
+    else {
+        ret = copy_to_user(userbuf, &KlogQueue[front], sizeof(QueueItem)*forward);
+        ret += copy_to_user(userbuf+forward, KlogQueue, sizeof(QueueItem)*(count - forward)); 
+        count -= ret;
+    }
+    front = (front + count) % KLOG_QUEUE_SIZE;
+    printk("dequeued, front: %d\n", front);
+    return count;
 }
 
 int klog_isempty()

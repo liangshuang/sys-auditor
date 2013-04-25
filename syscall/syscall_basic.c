@@ -5,6 +5,7 @@
 #include <linux/sched.h>            /* current */
 #include "klogger.h"
 #include "syscall_klog.h"
+#include "klog_queue.h""
 /********************************** Definitions ******************************/
 
 /******************************** Declarations ********************************/
@@ -53,10 +54,19 @@ inline static void add_log_entry(enum klog_type type, char* param, int param_siz
     e.pid = current->pid;
     e.uid = current_uid();
     e.param_size = param_size;
+    /*
     logfifo_write(&e, sizeof(e)); 
 
     if(param_size > 0)
         logfifo_write(param, param_size);
+    */
+    if(param_size > 0) {
+        if(param_size > PARAM_BUF_SIZE)
+            param_size = PARAM_BUF_SIZE;
+        memcpy(e.param, param, param_size);
+    }
+    /* Enqueue this log entity to klog buffer */
+    klog_enqueue(&e);
 
 }
 //------------------------------------------------------------------------------

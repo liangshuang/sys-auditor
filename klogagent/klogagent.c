@@ -81,10 +81,6 @@ int klogagent_main(int argc, char* argv[])
             }
             printf("\n");
         }
-        else {
-            print_help();
-            return 0;
-        }
         if(debug_en) printf("Debug enabled.\n");
         printf("\n");
     }
@@ -134,7 +130,8 @@ int klog_dump(int in_fd, int out_fd)
     if(res == 0) 
         return 0;
     for(i = 0; i < res; i++) {
-        write(out_fd, &klog_buf[i], sizeof(struct klog_entry));
+        if(filter_uid(klog_buf[i].uid))
+            write(out_fd, &klog_buf[i], sizeof(struct klog_entry));
         /*
         pe = &klog_buf[i];
         switch(pe->type) {
@@ -173,6 +170,9 @@ int klog_dump(int in_fd, int out_fd)
 int filter_uid(int uid)
 {
     int i;
+    if(uid_cnt == 0)
+        return TRUE;
+
     for(i = 0; i < uid_cnt; i++) {
         if(UidList[i] == uid) {
             return TRUE;

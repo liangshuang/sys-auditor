@@ -11,6 +11,7 @@ from socket import *
 import struct
 from collections import namedtuple
 
+KlogType = ['WRITE', 'READ', 'OPEN', 'CLOSE']
 #******************************** Program Entry ********************************
 def main():
     HOST = ''
@@ -39,10 +40,11 @@ def main():
                 print len(log)
             else:
                 e = KlogEntry._make(struct.unpack(klog_fmt, log))
-                print 'type: ', e.type
                 print 'time: %d:%d:%d' % (e.hour, e.min, e.sec)
                 print 'pid: %d, uid: %d' % (e.pid, e.uid)
+                print 'type: ', KlogType[e.type]
                 print 'param: ', e.param
+                print 80*'-'
 
     tcpCliSock.close()
         

@@ -32,7 +32,7 @@ int klog_enqueue(QueueItem *item)
         return 0;
     memcpy(&KlogQueue[rear], item, sizeof(QueueItem));
     rear = (rear + 1)  % KLOG_QUEUE_SIZE;
-    printk(KERN_INFO "enqueued, rear: %d\n", rear);
+    //printk(KERN_INFO "enqueued, rear: %d\n", rear);
     return 1;
 }
 

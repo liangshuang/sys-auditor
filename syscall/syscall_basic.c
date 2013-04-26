@@ -9,7 +9,8 @@
 /********************************** Definitions ******************************/
 
 /******************************** Declarations ********************************/
-#define SYSCALL_TBL_ADDR 0xc000eb84
+//#define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
+#define SYSCALL_TBL_ADDR 0xc000ed44     /* cis-du02 goldfish 3.4 kernel */
 
 asmlinkage ssize_t (*orig_read)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_write)(int fd, char *buf, size_t count);
@@ -48,12 +49,11 @@ struct time_m get_time(void)
 inline static void add_log_entry(enum klog_type type, char* param, int param_size)
 {
     struct klog_entry e;
-
+    memset(&e, 0, sizeof(struct klog_entry));
     e.type = type;
     e.ts = get_time();
     e.pid = current->pid;
     e.uid = current_uid();
-    e.param_size = param_size;
     /*
     logfifo_write(&e, sizeof(e)); 
 
@@ -63,6 +63,8 @@ inline static void add_log_entry(enum klog_type type, char* param, int param_siz
     if(param_size > 0) {
         if(param_size > PARAM_BUF_SIZE)
             param_size = PARAM_BUF_SIZE;
+        /* Set tuned size here, otherwise 0 */
+        e.param_size = param_size;
         memcpy(e.param, param, param_size);
     }
     /* Enqueue this log entity to klog buffer */
@@ -168,18 +170,18 @@ int __init hook_start(void)
     void **sys_call_table = (void**)SYSCALL_TBL_ADDR;
     printk(KERN_NOTICE "Install hooker...\n");
     // Read
-/*
+/* TODO: Causes system reboot when rmmod with read 
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = hooked_read;
 
+//*/
     orig_write = sys_call_table[__NR_write];
     sys_call_table[__NR_write] = hooked_write;
 
-//*/
     // Open
     orig_open = sys_call_table[__NR_open];
     sys_call_table[__NR_open] = hooked_open;
-    /*
+    //*
     // Close
     orig_close = sys_call_table[__NR_close];
     sys_call_table[__NR_close] = hooked_close;
@@ -201,11 +203,11 @@ void __exit hook_stop(void)
     }
 
     sys_call_table[__NR_read] = orig_read;
-    sys_call_table[__NR_write] = orig_write;
 //*/
+    sys_call_table[__NR_write] = orig_write;
     sys_call_table[__NR_open] = orig_open;
-    /*
+    //*
     sys_call_table[__NR_close] = orig_close;
-    */
+    //*/
 }
 

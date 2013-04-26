@@ -16,8 +16,7 @@
 
 #include <string.h>
 #include <fcntl.h>
-//#include "syscall_klog.h"
-#include "klogagent.h"
+#include "syscall_klog.h"
 /****************************** Global Declarations ***************************/
 #define MX_UIDS    32
 #define KLOG_BUF_SIZE   64
@@ -90,7 +89,7 @@ int klogagent_main(int argc, char* argv[])
         printf("\n");
     }
     /* Connect to the server using TCP socket */
-    /*
+    //*
     tcpCliSock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serAddr;
     char *serIP = "10.0.2.2";
@@ -124,6 +123,7 @@ int klog_dump(int in_fd, int out_fd)
     struct klog_entry  klog_buf[KLOG_BUF_SIZE];
     struct klog_entry *pe;
     struct klog_entry e;
+    char param[PARAM_BUF_SIZE];
     int i = 0;
     //lseek(in_fd, 0, SEEK_SET);    
     res = read(in_fd, klog_buf, KLOG_BUF_SIZE);
@@ -134,6 +134,8 @@ int klog_dump(int in_fd, int out_fd)
     if(res == 0) 
         return 0;
     for(i = 0; i < res; i++) {
+        write(out_fd, &klog_buf[i], sizeof(struct klog_entry));
+        /*
         pe = &klog_buf[i];
         switch(pe->type) {
         case MYKLOG_WRITE:
@@ -158,11 +160,9 @@ int klog_dump(int in_fd, int out_fd)
         printf("PARAM SIZE: %d\n",  pe->param_size);
 
         if(pe->param_size > 0) {
-            lseek(in_fd, 0, SEEK_SET);
-            res = read(in_fd, klog_buf, pe->param_size);
-            //klog_buf[pe->param_size] = '\0';
-            //printf("%s\n", klog_buf);
+            //printf("%s\n", pe->param);
         }
+        */
     }
     return 0;
 }

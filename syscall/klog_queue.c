@@ -10,11 +10,10 @@
 #include <linux/stddef.h>
 #include <linux/kmod.h>
 #include <linux/fs.h>
-
+#include <asm/uaccess.h>        /* copy_to_user */
 
 #include "syscall_klog.h"
 #include "klog_queue.h"
-#include <asm/uaccess.h>        /* copy_to_user */
 
 /******************************** Definitions *********************************/
 #define KLOG_QUEUE_SIZE     (1<<12)

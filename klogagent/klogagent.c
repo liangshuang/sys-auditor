@@ -19,7 +19,9 @@
 #include "syscall_klog.h"
 /****************************** Global Declarations ***************************/
 #define MX_UIDS    32
+#define MX_KEY_LEN  16
 #define KLOG_BUF_SIZE   64
+
 #define FALSE   0
 #define TRUE    !FALSE
 // Debug
@@ -33,6 +35,9 @@
 /******************************** Global Variables ****************************/
 int UidList[MX_UIDS];
 int uid_cnt = 0;
+
+char FilterKey[MX_KEY_LEN];
+int key_cnt = 0;
 
 int debug_en = FALSE;
 /****************************** Function Protocalls ***************************/
@@ -72,6 +77,12 @@ int klogagent_main(int argc, char* argv[])
             else if(strcmp(argv[i], "-d") == 0) {
                 debug_en = TRUE;
             }
+            else if(strcmp(argv[i], "-k") == 0) {
+                i++;
+                strcpy(FilterKey, argv[i]);
+                key_cnt++;
+            }
+
         }
         printf("Klog Agent v1.0 for Android Emulator\n");
         if(uid_cnt > 0) {
@@ -80,6 +91,9 @@ int klogagent_main(int argc, char* argv[])
                 printf("%d ", UidList[i]);
             }
             printf("\n");
+        }
+        if(key_cnt > 0) {
+            printf("Filter by key %s\n", FilterKey);
         }
         if(debug_en) printf("Debug enabled.\n");
         printf("\n");
@@ -117,56 +131,29 @@ int klog_dump(int in_fd, int out_fd)
 {
     int res; 
     struct klog_entry  klog_buf[KLOG_BUF_SIZE];
-    struct klog_entry *pe;
-    struct klog_entry e;
-    char param[PARAM_BUF_SIZE];
+    //struct klog_entry *pe;
+    //struct klog_entry e;
+    //char param[PARAM_BUF_SIZE];
     int i = 0;
-    //lseek(in_fd, 0, SEEK_SET);    
+    //lseek(in_fd, 1, SEEK_SET);    
     res = read(in_fd, klog_buf, KLOG_BUF_SIZE);
     if(res == -1) {
-        printf("Read error!!\n");
+        perror("Read error!!\n");
         return -1;
     }
     if(res == 0) 
         return 0;
+    /* Upload logs to server */
     for(i = 0; i < res; i++) {
-        if(filter_uid(klog_buf[i].uid))
+        if(filter_uid(klog_buf[i].uid) || ( key_cnt > 0 && klog_buf[i].param_size > 0 && filter_key(klog_buf[i].param, FilterKey) ))
             write(out_fd, &klog_buf[i], sizeof(struct klog_entry));
-        /*
-        pe = &klog_buf[i];
-        switch(pe->type) {
-        case MYKLOG_WRITE:
-            PRINT("WRITE\n");
-            break;
-        case MYKLOG_READ:
-            PRINT("READ\n");
-            break;
-        case MYKLOG_OPEN:
-            PRINT("OPEN\n");
-            break;
-        case MYKLOG_CLOSE:
-            PRINT("CLOSE\n");
-            break;
-        default:
-            PRINT("Unknown Call\n");
-            //write(in_fd, NULL, 0);
-            return 0;
-        }
-        PRINT("Time: %d:%d:%d\n", pe->ts.hour, pe->ts.min, pe->ts.sec);    
-        PRINT("PID: %d, UID: %d\n", pe->pid, pe->uid);
-        printf("PARAM SIZE: %d\n",  pe->param_size);
-
-        if(pe->param_size > 0) {
-            //printf("%s\n", pe->param);
-        }
-        */
     }
     return 0;
 }
-//------------------------------------------------------------------------------
-// Preprocess logs before send out
-//------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------
+// Filter logs by uid
+//------------------------------------------------------------------------------
 int filter_uid(int uid)
 {
     int i;
@@ -180,5 +167,10 @@ int filter_uid(int uid)
     }
     return FALSE;
 }
-
+int filter_key(const char *param, const char *key)
+{
+    if(strstr(param, key))
+        return  TRUE;
+    else return FALSE;
+}
 

@@ -11,3 +11,6 @@ Module.symvers
 # Temporary files
 *.swp
 *.log
+# Android packages
+*.apk
+/samples

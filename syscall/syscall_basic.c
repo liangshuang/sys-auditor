@@ -9,8 +9,8 @@
 /********************************** Definitions ******************************/
 
 /******************************** Declarations ********************************/
-#define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
-//#define SYSCALL_TBL_ADDR 0xc000ed44     /* cis-du02 goldfish 3.4 kernel */
+//#define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
+#define SYSCALL_TBL_ADDR 0xc000ed44     /* cis-du02 goldfish 3.4 kernel */
 
 asmlinkage ssize_t (*orig_read)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_write)(int fd, char *buf, size_t count);

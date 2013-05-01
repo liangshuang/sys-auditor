@@ -34,6 +34,7 @@ def main():
     while True:
         log = tcpCliSock.recv(BUFSIZ)
         if not log:
+            print 'Sock recv error!'
             continue;
         else:
             if len(log) != BUFSIZ:
@@ -43,7 +44,7 @@ def main():
                 print 'time: %d:%d:%d' % (e.hour, e.min, e.sec)
                 print 'pid: %d, uid: %d' % (e.pid, e.uid)
                 print 'type: ', KlogType[e.type]
-                print 'param: ', e.param
+                print 'param(%d): %s' % (e.param_size, e.param)
                 print 80*'-'
 
     tcpCliSock.close()

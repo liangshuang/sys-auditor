@@ -10,8 +10,10 @@
 from socket import *
 import struct
 from collections import namedtuple
+import smspdu
 
 KlogType = ['WRITE', 'READ', 'OPEN', 'CLOSE']
+KLOGSIZE = 284        # Size of C struct klog_entry
 #******************************** Program Entry ********************************
 def main():
     HOST = ''
@@ -19,7 +21,6 @@ def main():
     PORT = 8888
     ADDR = (HOST, PORT)
 
-    BUFSIZ = 284
     tcpSerSock = socket(AF_INET, SOCK_STREAM)
     tcpSerSock.bind(ADDR)
     tcpSerSock.listen(5)
@@ -28,29 +29,61 @@ def main():
     tcpCliSock, addr = tcpSerSock.accept()
     print '...connected from ', addr 
     
-    klog_fmt = "iiiiiii256s"
-    KlogEntry = namedtuple('KlogEntry', 'type hour min sec pid uid param_size param')
     # Print kernel log
     while True:
-        log = tcpCliSock.recv(BUFSIZ)
-        if not log:
+        logbuf = tcpCliSock.recv(KLOGSIZE)
+        e = getKlogEntry(logbuf)
+        if not e:
             print 'Sock recv error!'
             continue;
         else:
-            if len(log) != BUFSIZ:
-                print len(log)
-            else:
-                e = KlogEntry._make(struct.unpack(klog_fmt, log))
-                print 'time: %d:%d:%d' % (e.hour, e.min, e.sec)
-                print 'pid: %d, uid: %d' % (e.pid, e.uid)
-                print 'type: ', KlogType[e.type]
-                print 'param(%d): %s' % (e.param_size, e.param)
-                print 80*'-'
+            printKlogEntry(e)
+            pdu = probeSmsSubmit(e, tcpCliSock)
+            if pdu is not None:
+                print 'SMS_SUBMIT %s to %s' % (pdu.user_data, pdu.tp_address)
+
+            print 80*'='
 
     tcpCliSock.close()
-        
     tcpSerSock.close()
 
+def getKlogEntry(logbuf):
+    klog_fmt = "iiiiiii256s"
+    KlogEntry = namedtuple('KlogEntry', 'type hour min sec pid uid param_size param')
+
+    if not logbuf or len(logbuf) != KLOGSIZE:
+        return None
+    e = KlogEntry._make(struct.unpack(klog_fmt, logbuf))
+    return e
+
+def printKlogEntry(klog):
+    print 'time: %d:%d:%d' % (klog.hour, klog.min, klog.sec)
+    print 'pid: %d, uid: %d' % (klog.pid, klog.uid)
+    print 'type: ', KlogType[klog.type]
+    print 'param(%d): %s' % (klog.param_size, klog.param)
+   
+def probeSmsSubmit(klog, sock):
+    if klog.uid != 1001 or KlogType[klog.type] != "WRITE" or klog.param_size < 8:
+        return None
+    if klog.param.startswith("AT+CMGS="):
+        # Swallow <CR>
+        e = getKlogEntry(sock.recv(KLOGSIZE))
+        if not e:
+            return None
+        printKlogEntry(e)
+        print 80*'-'
+        # SMSC.addr + TPDU
+        e = getKlogEntry(sock.recv(KLOGSIZE)) 
+        if not e:
+            return None
+        printKlogEntry(e)
+        print 80*'-'
+        smsc_al = int(e.param[0]*10) + int(e.param[1])
+        if smsc_al == 0:
+            pdu =  smspdu.SMS_SUBMIT.fromPDU(e.param[2:e.param_size], 'sender')
+        else:
+            pdu = smspdu.SMS_SUBMIT.fromPDU(e.param[(4+smsc_al*2):e.param_size])
+        return pdu
 
 if __name__ == "__main__":
     main()

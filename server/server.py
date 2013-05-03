@@ -49,12 +49,15 @@ def main():
                 # Ignore AT+CSQ
                 if e.param.startswith("AT+CSQ"):
                     continue
+                # Ignore AT+CLCC
+                #if e.param.startswith("AT+CLCC"):
+                    #continue
                 print 80*'='
                 printKlogEntry(e)
                 print 80*'-'
                 # Probe SMS-SUBMIT
                 pdu = probeSmsSubmit(e, tcpCliSock)
-                if pdu is not None:
+                if pdu:
                     print 'Send SMS [%s] to %s' % (pdu.user_data, pdu.tp_address)
                     klogRecFile.write('Send SMS [%s] to %s\n' % (pdu.user_data, pdu.tp_address))
                     klogRecFile.write(80*'='+'\n')
@@ -73,6 +76,14 @@ def main():
                     klogRecFile.write('Calling %s\n' % (dst_num))
                     klogRecFile.write(80*'='+'\n')
                     continue
+                # Probe incoming call
+                clcc_response = probeIncomingCall(e, tcpCliSock)
+                if clcc_response:
+                    print 'Incoming call %s' % (clcc_response)
+                    klogRecFile.write('Incoming call %s\n' % (clcc_response))
+                    klogRecFile.write(80*'='+'\n')
+                    continue
+
     klogRecFile.close()
     tcpCliSock.close()
     tcpSerSock.close()
@@ -118,6 +129,7 @@ def probeSmsSubmit(klog, sock):
             print 80*'-'
             if e.uid == 1001 and KlogType[e.type] == 'WRITE':
                 break
+
         smsc_al = int(e.param[0])*10 + int(e.param[1])
         if smsc_al == 0:
             pdu =  smspdu.SMS_SUBMIT.fromPDU(e.param[2:e.param_size], 'sender')
@@ -162,5 +174,32 @@ def probeOutgoingCall(klog):
     else:
         return None
 
+def probeIncomingCall(klog, sock):
+    if klog.uid != 1001 or KlogType[klog.type] != "WRITE":
+        return None
+    if klog.param.startswith("AT+CLCC"):
+        # Swallow CTL+M
+        e = rawStream2Klog(sock.recv(KLOGSIZE))
+        if not e:
+            return None
+        printKlogEntry(e)
+        print 80*'-'
+        # CLCC Response
+        while True:
+            e = rawStream2Klog(sock.recv(KLOGSIZE)) 
+            if not e:
+                return None
+            printKlogEntry(e)
+            print 80*'-'
+            if e.uid == 1001 and KlogType[e.type] == 'READ':
+                break
+        if e.param.startswith("+CLCC"):
+            clcc_res = e.param[6:].strip().split(',', 6)
+            #print clcc_res
+            return clcc_res[5]
+        else:
+            return None
+    else:
+        return None
 if __name__ == "__main__":
     main()

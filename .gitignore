@@ -15,5 +15,6 @@ Module.symvers
 *.apk
 /samples
 /testbench/KlogBench/bin
+/testbench/KlogBench/gen
 # Logs
 /server/klogs.txt

@@ -9,16 +9,28 @@
 /********************************** Definitions ******************************/
 
 /******************************** Declarations ********************************/
-//#define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
-#define SYSCALL_TBL_ADDR 0xc000ed44     /* cis-du02 goldfish 3.4 kernel */
+#define HOOK_SOCKET     1
+#define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
+//#define SYSCALL_TBL_ADDR 0xc000ed44     /* cis-du02 goldfish 3.4 kernel */
 
 asmlinkage ssize_t (*orig_read)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_write)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_open)(const char *pathname, int flags);
 asmlinkage ssize_t (*orig_close)(int fd);
 
-asmlinkage int (*orig_socketcall)(int call, unsigned long *args);
+#if HOOK_SOCKET
+#ifdef __ARCH_WANT_SYS_SOCKETCALL
+asmlinkage int (*orig_socketcall)(int call, unsigned long* args);
+#else
 asmlinkage int (*orig_socket)(int family, int type, int protocol);
+asmlinkage int (*orig_bind)(int fd, struct sockaddr* addr, int addrlen);
+asmlinkage int (*orig_connect)(int fd, struct sockaddr *addr, int addrlen);
+asmlinkage int (*orig_listen)(int fd, int backlog);
+asmlinkage int (*orig_accept)(int fd, struct sockaddr *addr, int *addrlen);
+asmlinkage ssize_t (*orig_send)(int fd, void *buf, size_t len, unsigned flags);
+asmlinkage ssize_t (*orig_recv)(int fd, void *buf, size_t size, unsigned flags);
+#endif//__ARCH_WANT_SYS_SOCKETCALL
+#endif // HOOK_SOCKET
 
 /********************************* Function Entry ******************************/
 
@@ -120,7 +132,7 @@ hooked_close(int fd)
     add_log_entry(MYKLOG_CLOSE, NULL, 0);
     return ret;
 }
-
+#if HOOK_SOCKET
 #ifdef __ARCH_WANT_SYS_SOCKETCALL
 //------------------------------------------------------------------------------
 // Hooked socketcall for logger
@@ -129,6 +141,9 @@ hooked_close(int fd)
 asmlinkage int
 hooked_socketcall(int call, unsigned long * args)
 {
+    int ret;
+    ret = orig_socketcall(call, args);
+    /*
     struct time_m callTime = get_time();
     switch(call){
         case SYS_SOCKET:
@@ -144,7 +159,9 @@ hooked_socketcall(int call, unsigned long * args)
             printk(KERN_INFO "%d:%d:%d SOCKETCALL-LISTEN: \n", callTime.hour, callTime.min, callTime.sec);
             break;
     }
-    return orig_socketcall(call, args);
+    //*/
+    add_log_entry(MYKLOG_SOCKETCALL, NULL, 0);
+    return ret;
 }
 #else
 //------------------------------------------------------------------------------
@@ -153,12 +170,79 @@ hooked_socketcall(int call, unsigned long * args)
 asmlinkage int
 hooked_socket(int family, int type, int protocol)
 {
-    struct time_m callTime = get_time();
-    printk(KERN_INFO "%d:%d:%d SOCKET:\n", callTime.hour, callTime.min, callTime.sec);
-    return orig_socket(family, type, protocol);
+    int ret;
+    ret = orig_socket(family, type, protocol);
+    // Add log entry
+    add_log_entry(MYKLOG_SOCKET, NULL, 0);
+    return ret;
+}
+
+//------------------------------------------------------------------------------
+// bind
+//------------------------------------------------------------------------------
+asmlinkage int
+hooked_bind(int fd, struct sockaddr* addr, int addrlen)
+{
+    int ret;
+    ret = orig_bind(fd, addr, addrlen);
+    add_log_entry(MYKLOG_BIND, NULL, 0);
+    return ret;
+}
+//------------------------------------------------------------------------------
+// connect
+//------------------------------------------------------------------------------
+asmlinkage int
+hooked_connect(int fd, struct sockaddr *addr, int addrlen)
+{
+    int ret;
+    ret = orig_connect(fd, addr, addrlen);
+    add_log_entry(MYKLOG_CONNECT, NULL, 0);
+    return ret;
+
+}
+//------------------------------------------------------------------------------
+// listen
+//------------------------------------------------------------------------------
+asmlinkage int
+hooked_listen(int fd, int backlog)
+{
+    int ret;
+    ret = orig_listen(fd, backlog);
+    add_log_entry(MYKLOG_LISTEN, NULL, 0);
+    return ret;
+}
+//------------------------------------------------------------------------------
+// accept
+//------------------------------------------------------------------------------
+asmlinkage int
+hooked_accept(int fd, struct sockaddr *addr, int *addrlen)
+{
+    int ret;
+    ret = orig_accept(fd, addr, addrlen);
+    add_log_entry(MYKLOG_ACCEPT, NULL, 0);
+    return ret;
+}
+//------------------------------------------------------------------------------
+// send
+//------------------------------------------------------------------------------
+asmlinkage ssize_t
+hooked_send(int fd, void *buf, size_t len, unsigned flags)
+{
+    int ret;
+    ret = orig_send(fd, buf, len, flags);
+    add_log_entry(MYKLOG_SEND, buf, len);
+    return ret;
+}
+
+asmlinkage ssize_t hooked_recv(int fd, void *buf, size_t size, unsigned flags)
+{
+    ssize_t ret;
+    ret = orig_recv(fd, buf, size, flags);
+    add_log_entry(MYKLOG_RECV, buf, size);
+    return ret;
 }
 #endif
-
+#endif //HOOK_SOCKET
 
 
 //------------------------------------------------------------------------------
@@ -170,7 +254,7 @@ int __init hook_start(void)
     void **sys_call_table = (void**)SYSCALL_TBL_ADDR;
     printk(KERN_NOTICE "Install hooker...\n");
     // Read
-/* TODO: Causes system reboot when rmmod with read 
+//* TODO: Causes system reboot when rmmod with read 
     orig_read = sys_call_table[__NR_read];
     sys_call_table[__NR_read] = hooked_read;
 
@@ -186,6 +270,34 @@ int __init hook_start(void)
     orig_close = sys_call_table[__NR_close];
     sys_call_table[__NR_close] = hooked_close;
 //*/
+    /* Sockets */
+#if HOOK_SOCKET
+#ifdef __ARCH_WANT_SYS_SOCKETCALL
+    orig_socketcall = sys_call_table[__NR_socketcall];
+    sys_call_table[__NR_socketcall] = hooked_socketcall;
+#else
+    orig_socket = sys_call_table[__NR_socket];
+    sys_call_table[__NR_socket] = hooked_socket;
+
+    orig_bind = sys_call_table[__NR_bind];
+    sys_call_table[__NR_bind] = hooked_bind;
+
+    orig_connect = sys_call_table[__NR_connect];
+    sys_call_table[__NR_connect] = hooked_connect;
+
+    orig_listen = sys_call_table[__NR_listen];
+    sys_call_table[__NR_listen] = hooked_listen;
+
+    orig_accept = sys_call_table[__NR_accept];
+    sys_call_table[__NR_accept] = hooked_accept;
+
+    orig_send = sys_call_table[__NR_send];
+    sys_call_table[__NR_send] = hooked_send;
+
+    orig_recv = sys_call_table[__NR_recv];
+    sys_call_table[__NR_recv] = hooked_recv;
+#endif
+#endif // HOOK_SOCKET
     return 0;
 }
 
@@ -202,12 +314,25 @@ void __exit hook_stop(void)
         printk("<1>Remove will cause read system call in an unstable state\n");
     }
 
-    sys_call_table[__NR_read] = orig_read;
 //*/
+    sys_call_table[__NR_read] = orig_read;
     sys_call_table[__NR_write] = orig_write;
     sys_call_table[__NR_open] = orig_open;
     //*
     sys_call_table[__NR_close] = orig_close;
     //*/
+#if HOOK_SOCKET
+#ifdef __ARCH_WANT_SYS_SOCKETCALL
+    sys_call_table[__NR_socketcall] = orig_socketcall;
+#else
+    sys_call_table[__NR_socket] = orig_socket;
+    sys_call_table[__NR_bind] = orig_bind;
+    sys_call_table[__NR_connect] = orig_connect;
+    sys_call_table[__NR_listen] = orig_listen;
+    sys_call_table[__NR_accept] = orig_accept;
+    sys_call_table[__NR_send] = orig_send;
+    sys_call_table[__NR_recv] == orig_recv;
+#endif 
+#endif // HOOK_SOCKET
 }
 

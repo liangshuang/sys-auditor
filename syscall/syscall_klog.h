@@ -13,7 +13,15 @@ enum klog_type {
     MYKLOG_WRITE,
     MYKLOG_READ,
     MYKLOG_OPEN,
-    MYKLOG_CLOSE
+    MYKLOG_CLOSE,
+    MYKLOG_SOCKETCALL,
+    MYKLOG_SOCKET,
+    MYKLOG_BIND,
+    MYKLOG_CONNECT,
+    MYKLOG_LISTEN,
+    MYKLOG_ACCEPT,
+    MYKLOG_SEND,
+    MYKLOG_RECV
 };
 
 struct klog_entry {

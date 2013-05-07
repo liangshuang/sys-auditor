@@ -10,9 +10,19 @@
 
     <Button
         android:id="@+id/button_sendmsg"
+        style="?android:attr/buttonStyleSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="27dp"
         android:text="Send SMS" />
+
+    <Button
+        android:id="@+id/button_readcontact"
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/button_sendmsg"
+        android:layout_below="@+id/button_sendmsg"
+        android:text="Read Contacts" />
 
 </RelativeLayout>

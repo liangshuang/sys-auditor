@@ -16,7 +16,10 @@ from collections import namedtuple
 import smspdu
 
 #******************************** Definitions *********************************#
-KlogType = ['WRITE', 'READ', 'OPEN', 'CLOSE']
+KlogType = ['WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
+            'SOCKET', 'BIND', 'CONNECT', 'LISTEN', 'ACCEPT', 'SEND',
+            'RECV']
+
 KLOGSIZE = 284        # Size of C struct klog_entry
 
 #******************************** Program Entry *******************************#
@@ -95,8 +98,17 @@ def rawStream2Klog(logbuf):
     if not logbuf or len(logbuf) != KLOGSIZE:
         return None
     e = KlogEntry._make(struct.unpack(klog_fmt, logbuf))
+
+    if not  getKlogType(e):
+        return None
     return e
 
+def getKlogType(klog):
+    if klog.type > len(KlogType)-1:
+        return None
+    else:
+        return KlogType[klog.type]
+    
 def printKlogEntry(klog):
     print 'time: %d:%d:%d' % (klog.hour, klog.min, klog.sec)
     print 'pid: %d, uid: %d' % (klog.pid, klog.uid)

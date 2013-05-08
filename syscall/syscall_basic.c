@@ -28,7 +28,11 @@ asmlinkage int (*orig_connect)(int fd, struct sockaddr *addr, int addrlen);
 asmlinkage int (*orig_listen)(int fd, int backlog);
 asmlinkage int (*orig_accept)(int fd, struct sockaddr *addr, int *addrlen);
 asmlinkage ssize_t (*orig_send)(int fd, void *buf, size_t len, unsigned flags);
+asmlinkage int (*orig_sendto)(int fd, void *buff, size_t len, unsigned flags, \
+    struct sockaddr *addr, int addr_len);
 asmlinkage ssize_t (*orig_recv)(int fd, void *buf, size_t size, unsigned flags);
+asmlinkage int (*orig_recvfrom)(int fd, void *ubuf, size_t size, unsigned flags, \
+    struct sockaddr *addr, int addr_len);
 #endif//__ARCH_WANT_SYS_SOCKETCALL
 #endif // HOOK_SOCKET
 
@@ -241,6 +245,25 @@ asmlinkage ssize_t hooked_recv(int fd, void *buf, size_t size, unsigned flags)
     add_log_entry(MYKLOG_RECV, buf, size);
     return ret;
 }
+
+asmlinkage int hooked_recvfrom(int fd, void *ubuf, size_t size, unsigned flags, \
+    struct sockaddr *addr, int addr_len)
+{
+    int ret;
+    ret = orig_recvfrom(fd, ubuf, size, flags, addr, addr_len);
+    add_log_entry(MYKLOG_RECVFROM, ubuf, size);
+    return ret;
+}
+
+asmlinkage int hooked_sendto(int fd, void *buff, size_t len, unsigned flags, \
+    struct sockaddr *addr, int addr_len)
+{
+    int ret;
+    ret = orig_sendto(fd, buff, len, flags, addr, addr_len);
+    add_log_entry(MYKLOG_SENDTO, buff, len);
+    return ret;
+}
+
 #endif
 #endif //HOOK_SOCKET
 
@@ -294,8 +317,14 @@ int __init hook_start(void)
     orig_send = sys_call_table[__NR_send];
     sys_call_table[__NR_send] = hooked_send;
 
+    orig_sendto = sys_call_table[__NR_sendto];
+    sys_call_table[__NR_sendto] = hooked_sendto;
+
     orig_recv = sys_call_table[__NR_recv];
     sys_call_table[__NR_recv] = hooked_recv;
+
+    orig_recvfrom = sys_call_table[__NR_recvfrom];
+    sys_call_table[__NR_recvfrom] = hooked_recvfrom;
 #endif
 #endif // HOOK_SOCKET
     return 0;
@@ -331,7 +360,9 @@ void __exit hook_stop(void)
     sys_call_table[__NR_listen] = orig_listen;
     sys_call_table[__NR_accept] = orig_accept;
     sys_call_table[__NR_send] = orig_send;
+    sys_call_table[__NR_sendto] = orig_sendto;
     sys_call_table[__NR_recv] == orig_recv;
+    sys_call_table[__NR_recvfrom] = orig_recvfrom;
 #endif 
 #endif // HOOK_SOCKET
 }

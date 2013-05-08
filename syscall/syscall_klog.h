@@ -21,7 +21,9 @@ enum klog_type {
     MYKLOG_LISTEN,
     MYKLOG_ACCEPT,
     MYKLOG_SEND,
-    MYKLOG_RECV
+    MYKLOG_SENDTO,
+    MYKLOG_RECV,
+    MYKLOG_RECVFROM
 };
 
 struct klog_entry {

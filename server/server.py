@@ -17,8 +17,8 @@ import smspdu
 
 #******************************** Definitions *********************************#
 KlogType = ['WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
-            'SOCKET', 'BIND', 'CONNECT', 'LISTEN', 'ACCEPT', 'SEND',
-            'RECV']
+            'SOCKET', 'BIND', 'CONNECT', 'LISTEN', 'ACCEPT', 'SEND', 'SENDTO',
+            'RECV', 'RECVFROM']
 
 KLOGSIZE = 284        # Size of C struct klog_entry
 

@@ -72,7 +72,7 @@ def main():
                     klogRecFile.write('Receive SMS [%s] from %s\n' % (pdu.user_data, pdu.tp_address))
                     klogRecFile.write(80*'='+'\n')
                     continue
-                # Probe outgoing call
+                # Probe outgoing call by 'ATD'
                 dst_num = probeOutgoingCall(e)
                 if dst_num:
                     print 'Calling %s' % (dst_num)
@@ -82,9 +82,14 @@ def main():
                 # Probe incoming call
                 clcc_response = probeIncomingCall(e, tcpCliSock)
                 if clcc_response:
-                    print 'Incoming call %s' % (clcc_response)
-                    klogRecFile.write('Incoming call %s\n' % (clcc_response))
-                    klogRecFile.write(80*'='+'\n')
+                    if clcc_response[0] == 0:   #MO
+                        print 'Outgoing call %s' % (clcc_response[1])
+                        klogRecFile.write('Outgoing call %s\n' % (clcc_response[1]))
+                        klogRecFile.write(80*'='+'\n')
+                    else:
+                        print 'Incoming call %s' % (clcc_response[1])
+                        klogRecFile.write('Incoming call %s\n' % (clcc_response[1]))
+                        klogRecFile.write(80*'='+'\n')
                     continue
 
     klogRecFile.close()
@@ -150,6 +155,10 @@ def probeSmsSubmit(klog, sock):
         return pdu
     else:
         return None
+
+#-------------------------------------------------------------------------------
+# 
+#-------------------------------------------------------------------------------
 def probeSmsReceive(klog, sock):
     if klog.uid != 1001 or not klog.param:
         return None
@@ -178,6 +187,7 @@ def probeSmsReceive(klog, sock):
         return pdu
     else:
         return None
+
 def probeOutgoingCall(klog):
     if klog.uid != 1001 or KlogType[klog.type] != "WRITE":
         return None
@@ -197,7 +207,8 @@ def probeIncomingCall(klog, sock):
         printKlogEntry(e)
         print 80*'-'
         # CLCC Response
-        while True:
+        count = 5
+        while count:
             e = rawStream2Klog(sock.recv(KLOGSIZE)) 
             if not e:
                 return None
@@ -205,13 +216,19 @@ def probeIncomingCall(klog, sock):
             print 80*'-'
             if e.uid == 1001 and KlogType[e.type] == 'READ':
                 break
+            count = count - 1
+        if not count:
+            return None
         if e.param.startswith("+CLCC"):
             clcc_res = e.param[6:].strip().split(',', 6)
             #print clcc_res
-            return clcc_res[5]
+            direction = int(clcc_res[1])
+            
+            return (direction, clcc_res[5])
         else:
             return None
     else:
         return None
+
 if __name__ == "__main__":
     main()

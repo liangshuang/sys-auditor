@@ -25,4 +25,22 @@
         android:layout_below="@+id/button_sendmsg"
         android:text="Read Contacts" />
 
+    <Button
+        android:id="@+id/button_imei"
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/button_readcontact"
+        android:layout_below="@+id/button_readcontact"
+        android:text="IMEI" />
+
+    <Button
+        android:id="@+id/button_imsi"
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/button_readcontact"
+        android:layout_toRightOf="@+id/button_imei"
+        android:text="IMSI" />
+
 </RelativeLayout>

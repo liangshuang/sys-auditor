@@ -4,8 +4,10 @@ import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.app.Activity;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.database.Cursor;
 import android.telephony.SmsManager;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.View;
@@ -13,10 +15,13 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.Toast;
 
-public class BenchActivity extends Activity {
+public class BenchActivity extends Activity implements OnClickListener {
 	Button butt_sendmsg;
 	Button butt_readcontact;
+	Button butt_imei, butt_imsi;
 	SmsManager smsManager;
+	TelephonyManager teleMgr;
+	//TelephonyManager teleMgr = null;
 	static final String LOG_TAG = "KlogBench";
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -25,10 +30,14 @@ public class BenchActivity extends Activity {
 		
 		/* Main activity initialization */
 		smsManager = SmsManager.getDefault();
-		// Send SMS Button
+		teleMgr = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+		// Buttons
 		butt_sendmsg = (Button)findViewById(R.id.button_sendmsg);
+		butt_readcontact = (Button)findViewById(R.id.button_readcontact);
+		butt_imei = (Button)findViewById(R.id.button_imei);
+		butt_imsi = (Button)findViewById(R.id.button_imsi);
+		// Send SMS Button
 		butt_sendmsg.setOnClickListener(new OnClickListener() {
-		
 			@Override
 			public void onClick(View v) {
 				// Send SMS
@@ -39,7 +48,6 @@ public class BenchActivity extends Activity {
 			}
 		});
 		// Read Contact Button
-		butt_readcontact = (Button)findViewById(R.id.button_readcontact);
 		butt_readcontact.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -62,6 +70,10 @@ public class BenchActivity extends Activity {
 				}
 			}
 		});
+		// IMEI IMSI
+		butt_imei.setOnClickListener(this);
+		butt_imsi.setOnClickListener(this);
+		//
 		
 	}
 
@@ -76,6 +88,22 @@ public class BenchActivity extends Activity {
 
 		smsManager.sendTextMessage(to, null, msg, null, null);
 		Log.d(LOG_TAG, String.format("Send out SMS %s to %s\n", msg, to));
+	}
+
+	@Override
+	public void onClick(View v) {
+		// TODO Auto-generated method stub
+		switch(v.getId()) {
+		case R.id.button_imei:
+			String imei = teleMgr.getDeviceId();
+			Toast.makeText(v.getContext(), "IMEI: " + imei, Toast.LENGTH_SHORT).show();
+			break;
+		case R.id.button_imsi:
+			String imsi = teleMgr.getSubscriberId();
+			Toast.makeText(v.getContext(), "IMSI: " + imsi, Toast.LENGTH_SHORT).show();
+			break;
+		}
+		
 	}
 	
 }

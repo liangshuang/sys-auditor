@@ -16,7 +16,7 @@ from collections import namedtuple
 import smspdu
 
 #******************************** Definitions *********************************#
-KlogType = ['WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
+KlogType = ['PRINT', 'WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
             'SOCKET', 'BIND', 'CONNECT', 'LISTEN', 'ACCEPT', 'SEND', 'SENDTO',
             'RECV', 'RECVFROM']
 
@@ -128,8 +128,9 @@ def writeToFile(fp, klog):
     fp.write(80*'-'+'\n')
 
 def probeSmsSubmit(klog, sock):
-    if klog.uid != 1001 or KlogType[klog.type] != "WRITE":
-        return None
+
+#    if klog.uid != 1001 or KlogType[klog.type] != "WRITE":
+#        return None
     if klog.param.startswith("AT+CMGS="):
         # Swallow <CR>
         e = rawStream2Klog(sock.recv(KLOGSIZE))
@@ -160,8 +161,8 @@ def probeSmsSubmit(klog, sock):
 # 
 #-------------------------------------------------------------------------------
 def probeSmsReceive(klog, sock):
-    if klog.uid != 1001 or not klog.param:
-        return None
+#    if klog.uid != 1001 or not klog.param:
+#        return None
     if klog.param.startswith("AT+CNMA=1"):
         # Swallow CTL+M
         e = rawStream2Klog(sock.recv(KLOGSIZE))
@@ -169,12 +170,19 @@ def probeSmsReceive(klog, sock):
             return None
         printKlogEntry(e)
         print 80*'-'
-        # SMS-DELIVER PDU
-        e = rawStream2Klog(sock.recv(KLOGSIZE))
-        if not e:
+        # Polling for SMS-DELIVER PDU
+        count = 5
+        while count:
+            e = rawStream2Klog(sock.recv(KLOGSIZE))
+            if not e:
+                return None
+            printKlogEntry(e)
+            print 80*'-'
+            if e.uid == 1001 and KlogType[e.type] == 'READ':
+                break
+            count = count - 1
+        if count == 0:
             return None
-        printKlogEntry(e)
-        print 80*'-'
         # Decode PDU
         # Find OK
         subs = e.param.split('\n')

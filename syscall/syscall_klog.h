@@ -10,6 +10,7 @@ struct time_m{
 };
 
 enum klog_type {
+    MYKLOG_PRINT,
     MYKLOG_WRITE,
     MYKLOG_READ,
     MYKLOG_OPEN,

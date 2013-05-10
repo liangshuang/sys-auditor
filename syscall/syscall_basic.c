@@ -7,11 +7,22 @@
 #include "syscall_klog.h"
 #include "klog_queue.h""
 /********************************** Definitions ******************************/
+#define HOOK_SOCKET     0
 
-/******************************** Declarations ********************************/
-#define HOOK_SOCKET     1
+#define EN_KLOG_PRINT    0
+#define MYPRINT_BUF_SIZE 128
+
 #define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
 //#define SYSCALL_TBL_ADDR 0xc000ed44     /* cis-du02 goldfish 3.4 kernel */
+#if EN_KLOG_PRINT
+#define KLOG_PRINT(fmt, args...)    char mybuf[MYPRINT_BUF_SIZE]; \
+    sprintf(mybuf, fmt, ##args); \
+    add_log_entry(MYKLOG_PRINT, mybuf, strlen(mybuf))
+#else
+#define KLOG_PRINT(fmt, args...)
+#endif
+/******************************** Declarations ********************************/
+
 
 asmlinkage ssize_t (*orig_read)(int fd, char *buf, size_t count);
 asmlinkage ssize_t (*orig_write)(int fd, char *buf, size_t count);
@@ -96,6 +107,8 @@ hooked_write(int fd, char *buf, size_t count)
     ssize_t ret;
     ret = orig_write(fd, buf, count);
     add_log_entry(MYKLOG_WRITE, buf, count);
+    // Can't add print here, interrupt the ^M in AT+CMGS commands
+    KLOG_PRINT("write fd: %d\n", fd);
     return ret;
 }
 
@@ -108,6 +121,7 @@ hooked_read(int fd, char *buf, size_t count)
     ssize_t ret;
     ret = orig_read(fd, buf, count);
     add_log_entry(MYKLOG_READ, buf, count);
+    KLOG_PRINT("read fd: %d\n", fd);
     return ret;
 }
 
@@ -119,8 +133,10 @@ hooked_open(const char *pathname, int flags)
 {
     struct time_m callTime = get_time();
     ssize_t ret;
+
     ret = orig_open(pathname, flags);
     add_log_entry(MYKLOG_OPEN, pathname, strlen(pathname));
+    KLOG_PRINT("open fd: %d\n", ret);
     return ret;
 }
 
@@ -134,6 +150,7 @@ hooked_close(int fd)
     ret = orig_close(fd);
     /* Add log entry */
     add_log_entry(MYKLOG_CLOSE, NULL, 0);
+    KLOG_PRINT("close fd: %d\n", fd);
     return ret;
 }
 #if HOOK_SOCKET

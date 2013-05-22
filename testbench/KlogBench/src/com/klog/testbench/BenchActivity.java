@@ -1,10 +1,14 @@
-package com.example.klogbench;
+package com.klog.testbench;
+
+import com.klog.services.CurVisibleApp;
+import com.klog.testbench.R;
 
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
@@ -19,6 +23,7 @@ public class BenchActivity extends Activity implements OnClickListener {
 	Button butt_sendmsg;
 	Button butt_readcontact;
 	Button butt_imei, butt_imsi;
+	Button butt_start_service, butt_stop_service;
 	SmsManager smsManager;
 	TelephonyManager teleMgr;
 	//TelephonyManager teleMgr = null;
@@ -36,6 +41,8 @@ public class BenchActivity extends Activity implements OnClickListener {
 		butt_readcontact = (Button)findViewById(R.id.button_readcontact);
 		butt_imei = (Button)findViewById(R.id.button_imei);
 		butt_imsi = (Button)findViewById(R.id.button_imsi);
+		butt_start_service = (Button)findViewById(R.id.button_start_run_service);
+		butt_stop_service = (Button)findViewById(R.id.button_stop_run_service);
 		// Send SMS Button
 		butt_sendmsg.setOnClickListener(new OnClickListener() {
 			@Override
@@ -74,6 +81,8 @@ public class BenchActivity extends Activity implements OnClickListener {
 		butt_imei.setOnClickListener(this);
 		butt_imsi.setOnClickListener(this);
 		//
+		butt_start_service.setOnClickListener(this);
+		butt_stop_service.setOnClickListener(this);
 		
 	}
 
@@ -102,8 +111,21 @@ public class BenchActivity extends Activity implements OnClickListener {
 			String imsi = teleMgr.getSubscriberId();
 			Toast.makeText(v.getContext(), "IMSI: " + imsi, Toast.LENGTH_SHORT).show();
 			break;
+		case R.id.button_start_run_service:
+			sendCommandToService(CurVisibleApp.CMD_START_POLL);
+			break;
+		case R.id.button_stop_run_service:
+			sendCommandToService(CurVisibleApp.CMD_STOP_POLL);
+			break;
 		}
 		
+	}
+	void sendCommandToService(int command) {
+		Intent curVisibleIntent = new Intent(this, CurVisibleApp.class);
+		Bundle extras = new Bundle();
+		extras.putInt(CurVisibleApp.KEY_POLL, command);
+		curVisibleIntent.putExtras(extras);
+		startService(curVisibleIntent);
 	}
 	
 }

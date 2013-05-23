@@ -21,7 +21,7 @@ KlogType = ['PRINT', 'WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
             'RECV', 'RECVFROM']
 
 KLOGSIZE = 284        # Size of C struct klog_entry
-
+LOG2FILE = True
 #******************************** Program Entry *******************************#
 def main():
     HOST = ''
@@ -62,34 +62,34 @@ def main():
                 pdu = probeSmsSubmit(e, tcpCliSock)
                 if pdu:
                     print 'Send SMS [%s] to %s' % (pdu.user_data, pdu.tp_address)
-                    klogRecFile.write('Send SMS [%s] to %s\n' % (pdu.user_data, pdu.tp_address))
-                    klogRecFile.write(80*'='+'\n')
+                    #klogRecFile.write('Send SMS [%s] to %s\n' % (pdu.user_data, pdu.tp_address))
+                    #klogRecFile.write(80*'='+'\n')
                     continue
                 # Probe SMS-DELIVER
                 pdu = probeSmsReceive(e, tcpCliSock)
                 if pdu:
                     print 'Receive SMS [%s] from %s' % (pdu.user_data, pdu.tp_address)
-                    klogRecFile.write('Receive SMS [%s] from %s\n' % (pdu.user_data, pdu.tp_address))
-                    klogRecFile.write(80*'='+'\n')
+                    #klogRecFile.write('Receive SMS [%s] from %s\n' % (pdu.user_data, pdu.tp_address))
+                    #klogRecFile.write(80*'='+'\n')
                     continue
                 # Probe outgoing call by 'ATD'
                 dst_num = probeOutgoingCall(e)
                 if dst_num:
                     print 'Calling %s' % (dst_num)
-                    klogRecFile.write('Calling %s\n' % (dst_num))
-                    klogRecFile.write(80*'='+'\n')
+                    #klogRecFile.write('Calling %s\n' % (dst_num))
+                    #klogRecFile.write(80*'='+'\n')
                     continue
                 # Probe incoming call
                 clcc_response = probeIncomingCall(e, tcpCliSock)
                 if clcc_response:
                     if clcc_response[0] == 0:   #MO
                         print 'Outgoing call %s' % (clcc_response[1])
-                        klogRecFile.write('Outgoing call %s\n' % (clcc_response[1]))
-                        klogRecFile.write(80*'='+'\n')
+                        #klogRecFile.write('Outgoing call %s\n' % (clcc_response[1]))
+                        #klogRecFile.write(80*'='+'\n')
                     else:
                         print 'Incoming call %s' % (clcc_response[1])
-                        klogRecFile.write('Incoming call %s\n' % (clcc_response[1]))
-                        klogRecFile.write(80*'='+'\n')
+                        #klogRecFile.write('Incoming call %s\n' % (clcc_response[1]))
+                        #klogRecFile.write(80*'='+'\n')
                     continue
 
     klogRecFile.close()
@@ -121,11 +121,12 @@ def printKlogEntry(klog):
     print 'param(%d): %s' % (klog.param_size, klog.param)
 
 def writeToFile(fp, klog):
-    fp.write('time: %d:%d:%d\n' % (klog.hour, klog.min, klog.sec)) 
-    fp.write('pid: %d, uid: %d\n' % (klog.pid, klog.uid))
-    fp.write('type: %s\n' % KlogType[klog.type])
-    fp.write('param(%d): %s\n' % (klog.param_size, klog.param[:klog.param_size]))
-    fp.write(80*'-'+'\n')
+    if LOG2FILE:
+        fp.write('time: %d:%d:%d\n' % (klog.hour, klog.min, klog.sec)) 
+        fp.write('pid: %d, uid: %d\n' % (klog.pid, klog.uid))
+        fp.write('type: %s\n' % KlogType[klog.type])
+        fp.write('param(%d): %s\n' % (klog.param_size, klog.param[:klog.param_size]))
+        fp.write(80*'-'+'\n')
 
 def probeSmsSubmit(klog, sock):
 

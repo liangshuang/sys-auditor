@@ -12,7 +12,7 @@ Module.symvers
 *.swp
 *.log
 # Android packages
-*.apk
+#*.apk
 /samples
 /testbench/KlogBench/bin
 /testbench/KlogBench/gen

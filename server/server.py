@@ -38,23 +38,38 @@ def main():
     print '...connected from ', addr 
     # Initialize event recording
     klogRecFile = open("klogs.txt", "w") 
-    # Signature probing
+    # Create socket to communicate with App Agent
+    AppSerIP = "127.0.0.1"
+    AppSerPORT = 8099
+    udpCliSock = socket(AF_INET, SOCK_DGRAM)
+
     while True:
-        #klogRecFile.write(80*'='+'\n')
         logbuf = tcpCliSock.recv(KLOGSIZE)
         e = rawStream2Klog(logbuf)
         if not e:
             print 'Sock recv error!'
             continue;
         else:
-            checkRes = -1
+            checkRes = None
             writeKlogToFile(klogRecFile, e)
             if e.param and e.param.startswith("AT"):
                 checkRes = checkTelephony(e, tcpCliSock)
+            if checkRes:
+                # Send alert to App Agent
+                rc = udpCliSock.sendto(str(checkRes), (AppSerIP, AppSerPORT))
+                print 'Send alert to App Agent %d' % (rc)
+
 
     klogRecFile.close()
     tcpCliSock.close()
     tcpSerSock.close()
+#-------------------------------------------------------------------------------
+# Check the signatures of sms and call related signatures
+#-------------------------------------------------------------------------------
+AT_SMS_SUBMIT = 1
+AT_SMS_DELIVER = 2
+AT_OUTCALL = 3
+AT_INCALL = 4
 def checkTelephony(e, tcpCliSock):
     # Ignore AT+CSQ
     if e.param.startswith("AT+CSQ"):
@@ -71,21 +86,21 @@ def checkTelephony(e, tcpCliSock):
         print 'Send SMS [%s] to %s' % (pdu.user_data, pdu.tp_address)
         #klogRecFile.write('Send SMS [%s] to %s\n' % (pdu.user_data, pdu.tp_address))
         #klogRecFile.write(80*'='+'\n')
-        continue
+        return AT_SMS_SUBMIT
     # Probe SMS-DELIVER
     pdu = probeSmsReceive(e, tcpCliSock)
     if pdu:
         print 'Receive SMS [%s] from %s' % (pdu.user_data, pdu.tp_address)
         #klogRecFile.write('Receive SMS [%s] from %s\n' % (pdu.user_data, pdu.tp_address))
         #klogRecFile.write(80*'='+'\n')
-        continue
+        return AT_SMS_DELIVER
     # Probe outgoing call by 'ATD'
     dst_num = probeOutgoingCall(e)
     if dst_num:
         print 'Calling %s' % (dst_num)
         #klogRecFile.write('Calling %s\n' % (dst_num))
         #klogRecFile.write(80*'='+'\n')
-        continue
+        return AT_OUTCALL
     # Probe incoming call
     clcc_response = probeIncomingCall(e, tcpCliSock)
     if clcc_response:
@@ -93,11 +108,13 @@ def checkTelephony(e, tcpCliSock):
             print 'Outgoing call %s' % (clcc_response[1])
             #klogRecFile.write('Outgoing call %s\n' % (clcc_response[1]))
             #klogRecFile.write(80*'='+'\n')
+            return AT_OUTCALL
         else:
             print 'Incoming call %s' % (clcc_response[1])
             #klogRecFile.write('Incoming call %s\n' % (clcc_response[1]))
             #klogRecFile.write(80*'='+'\n')
-        continue
+            return AT_INCALL
+    return None 
 
 def rawStream2Klog(logbuf):
     klog_fmt = "iiiiiii256s"

@@ -47,54 +47,57 @@ def main():
             print 'Sock recv error!'
             continue;
         else:
-            writeToFile(klogRecFile, e)
+            checkRes = -1
+            writeKlogToFile(klogRecFile, e)
             if e.param and e.param.startswith("AT"):
-                # Ignore AT+CSQ
-                if e.param.startswith("AT+CSQ"):
-                    continue
-                # Ignore AT+CLCC
-                #if e.param.startswith("AT+CLCC"):
-                    #continue
-                print 80*'='
-                printKlogEntry(e)
-                print 80*'-'
-                # Probe SMS-SUBMIT
-                pdu = probeSmsSubmit(e, tcpCliSock)
-                if pdu:
-                    print 'Send SMS [%s] to %s' % (pdu.user_data, pdu.tp_address)
-                    #klogRecFile.write('Send SMS [%s] to %s\n' % (pdu.user_data, pdu.tp_address))
-                    #klogRecFile.write(80*'='+'\n')
-                    continue
-                # Probe SMS-DELIVER
-                pdu = probeSmsReceive(e, tcpCliSock)
-                if pdu:
-                    print 'Receive SMS [%s] from %s' % (pdu.user_data, pdu.tp_address)
-                    #klogRecFile.write('Receive SMS [%s] from %s\n' % (pdu.user_data, pdu.tp_address))
-                    #klogRecFile.write(80*'='+'\n')
-                    continue
-                # Probe outgoing call by 'ATD'
-                dst_num = probeOutgoingCall(e)
-                if dst_num:
-                    print 'Calling %s' % (dst_num)
-                    #klogRecFile.write('Calling %s\n' % (dst_num))
-                    #klogRecFile.write(80*'='+'\n')
-                    continue
-                # Probe incoming call
-                clcc_response = probeIncomingCall(e, tcpCliSock)
-                if clcc_response:
-                    if clcc_response[0] == 0:   #MO
-                        print 'Outgoing call %s' % (clcc_response[1])
-                        #klogRecFile.write('Outgoing call %s\n' % (clcc_response[1]))
-                        #klogRecFile.write(80*'='+'\n')
-                    else:
-                        print 'Incoming call %s' % (clcc_response[1])
-                        #klogRecFile.write('Incoming call %s\n' % (clcc_response[1]))
-                        #klogRecFile.write(80*'='+'\n')
-                    continue
+                checkRes = checkTelephony(e, tcpCliSock)
 
     klogRecFile.close()
     tcpCliSock.close()
     tcpSerSock.close()
+def checkTelephony(e, tcpCliSock):
+    # Ignore AT+CSQ
+    if e.param.startswith("AT+CSQ"):
+        return None
+    # Ignore AT+CLCC
+    #if e.param.startswith("AT+CLCC"):
+        #continue
+    print 80*'='
+    printKlogEntry(e)
+    print 80*'-'
+    # Probe SMS-SUBMIT
+    pdu = probeSmsSubmit(e, tcpCliSock)
+    if pdu:
+        print 'Send SMS [%s] to %s' % (pdu.user_data, pdu.tp_address)
+        #klogRecFile.write('Send SMS [%s] to %s\n' % (pdu.user_data, pdu.tp_address))
+        #klogRecFile.write(80*'='+'\n')
+        continue
+    # Probe SMS-DELIVER
+    pdu = probeSmsReceive(e, tcpCliSock)
+    if pdu:
+        print 'Receive SMS [%s] from %s' % (pdu.user_data, pdu.tp_address)
+        #klogRecFile.write('Receive SMS [%s] from %s\n' % (pdu.user_data, pdu.tp_address))
+        #klogRecFile.write(80*'='+'\n')
+        continue
+    # Probe outgoing call by 'ATD'
+    dst_num = probeOutgoingCall(e)
+    if dst_num:
+        print 'Calling %s' % (dst_num)
+        #klogRecFile.write('Calling %s\n' % (dst_num))
+        #klogRecFile.write(80*'='+'\n')
+        continue
+    # Probe incoming call
+    clcc_response = probeIncomingCall(e, tcpCliSock)
+    if clcc_response:
+        if clcc_response[0] == 0:   #MO
+            print 'Outgoing call %s' % (clcc_response[1])
+            #klogRecFile.write('Outgoing call %s\n' % (clcc_response[1]))
+            #klogRecFile.write(80*'='+'\n')
+        else:
+            print 'Incoming call %s' % (clcc_response[1])
+            #klogRecFile.write('Incoming call %s\n' % (clcc_response[1]))
+            #klogRecFile.write(80*'='+'\n')
+        continue
 
 def rawStream2Klog(logbuf):
     klog_fmt = "iiiiiii256s"
@@ -120,7 +123,7 @@ def printKlogEntry(klog):
     print 'type: ', KlogType[klog.type]
     print 'param(%d): %s' % (klog.param_size, klog.param)
 
-def writeToFile(fp, klog):
+def writeKlogToFile(fp, klog):
     if LOG2FILE:
         fp.write('time: %d:%d:%d\n' % (klog.hour, klog.min, klog.sec)) 
         fp.write('pid: %d, uid: %d\n' % (klog.pid, klog.uid))

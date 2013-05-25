@@ -1,10 +1,18 @@
 package com.klog.services;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.io.Writer;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -29,7 +37,7 @@ public class CurVisibleApp extends Service {
 	Timer pollRunningTimer;
 	
 	ServerSocket tcpSerSock;
-	AppServerThread appServer;
+	AppAgentThread appServer;
 	public CurVisibleApp() {
 
 	}
@@ -50,19 +58,19 @@ public class CurVisibleApp extends Service {
 			pollRunningTask = new TimerTask() {
 				@Override
 				public void run() {
-					getRunningTask();
+					getRunningTaskID();
 				}};
 			pollRunningTimer = new Timer();
 			pollRunningTimer.schedule(pollRunningTask, 5*1000, 5*1000);
 			// Listen for server request and alert
-			try {
+/*			try {
 				tcpSerSock = new ServerSocket(8099);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-			}
+			}*/
 			
-			appServer = new AppServerThread();
+			appServer = new AppAgentThread();
 			appServer.start();
 			break;
 		case CMD_STOP_POLL:
@@ -78,7 +86,7 @@ public class CurVisibleApp extends Service {
 		
 	}
 
-	void getRunningTask() {
+	int getRunningTaskID() {
 		ActivityManager am = (ActivityManager) this.getSystemService(ACTIVITY_SERVICE);
 		// Get current running tasks info
 		List<ActivityManager.RunningTaskInfo> taskInfo = am.getRunningTasks(1);
@@ -86,6 +94,7 @@ public class CurVisibleApp extends Service {
 		int uid = getUidByPackageName(componentInfo.getPackageName());
 		Log.d(LOG_TAG, "Current activity:: " + componentInfo.getClassName() + " in package: " + componentInfo.getPackageName()
 				+ " UID: " + uid);
+		return uid;
 	}
 	int getUidByPackageName(String packageName) {
 		int uid = -1;
@@ -102,18 +111,52 @@ public class CurVisibleApp extends Service {
 	/*
 	 * Socket server thread to communicate with server
 	 */
-	class AppServerThread extends Thread {
+	class AppAgentThread extends Thread {
 		@Override
 		public void run() {
-			Log.d(LOG_TAG, "thread is running!");
+			Log.d(LOG_TAG, "App agent thread is running!");
+			Socket agentSock = new Socket();
+			/* connect to server */
+			try {
+				SocketAddress serverAddr = new InetSocketAddress(InetAddress.getByName("10.0.2.2"), 8888);
+				agentSock.connect(serverAddr);
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			Log.d(LOG_TAG, "Connected to server");
+			/* Start Klog agent */
+/*			try {
+				Process klogProcess = Runtime.getRuntime().exec("klogagent -d");
+				BufferedReader br = new BufferedReader(new InputStreamReader(klogProcess.getInputStream()));
+				Log.d(LOG_TAG, br.readLine());
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			Log.d(LOG_TAG, "Started Klog Agent");*/
+			/* Waiting request from server */
 			while(true) {
 				try {
-					Socket c = tcpSerSock.accept();
-					// Receive data from server
-					Log.d(LOG_TAG, "Waiting for data!");
-					Reader sockReader = new InputStreamReader(c.getInputStream());
-					int data = sockReader.read();
-					Log.d(LOG_TAG, "Received " + data);
+					Reader sockReader = new InputStreamReader(agentSock.getInputStream());
+					DataOutputStream sockOStream = new DataOutputStream(agentSock.getOutputStream());
+					int reqCode = sockReader.read();
+					if(reqCode == -1) {
+						agentSock.close();
+						break;
+					}
+					switch(reqCode) {
+					case 0:
+						int uid = getRunningTaskID();
+						//sockWriter.write(String.format("%d", uid).toCharArray(), 0, 4);
+						sockOStream.writeInt(uid);
+				
+						sockOStream.flush();
+						Log.d(LOG_TAG, "Send back UID " + uid);
+						break;
+					default:
+						Log.d(LOG_TAG, "Request " + reqCode);
+					}
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();

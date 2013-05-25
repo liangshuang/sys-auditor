@@ -65,9 +65,11 @@ int klogagent_main(int argc, char* argv[])
     memset(UidList, 0, sizeof(UidList));
     /* Parse command parameters */
     switch(argc){
-    case 1:
-        print_help();
-        return 0;
+    case 2:
+        if(strcmp("-h", argv[1]) == 0 || strcmp("?", argv[1]) == 0)  {
+            print_help();
+            return 0;
+        }
     default:
         for(i = 1; i < argc; i++) {
             if(strcmp("-u", argv[i]) == 0) {
@@ -130,6 +132,7 @@ int klogagent_main(int argc, char* argv[])
 int klog_dump(int in_fd, int out_fd)
 {
     int res; 
+    char ackchr[1];
     struct klog_entry  klog_buf[KLOG_BUF_SIZE];
     //struct klog_entry *pe;
     //struct klog_entry e;
@@ -145,8 +148,15 @@ int klog_dump(int in_fd, int out_fd)
         return 0;
     /* Upload logs to server */
     for(i = 0; i < res; i++) {
-        if(filter_uid(klog_buf[i].uid) || ( key_cnt > 0 && klog_buf[i].param_size > 0 && filter_key(klog_buf[i].param, FilterKey) ))
+        if(filter_uid(klog_buf[i].uid) || 
+            ( key_cnt > 0 && klog_buf[i].param_size > 0 && filter_key(klog_buf[i].param, FilterKey) )) 
+        {
             write(out_fd, &klog_buf[i], sizeof(struct klog_entry));
+            // Wait for ack or nack
+            read(out_fd, ackchr, 1);
+            if(ackchr[0] == 'n' || ackchr[0] == 'a')
+                PRINT("Received ack or nack");
+        }
     }
     return 0;
 }

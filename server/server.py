@@ -21,7 +21,7 @@ KlogType = ['PRINT', 'WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
             'RECV', 'RECVFROM']
 
 KLOGSIZE = 284        # Size of C struct klog_entry
-LOG2FILE = True
+LOG2FILE = False
 #******************************** Program Entry *******************************#
 def main():
     HOST = ''
@@ -33,35 +33,42 @@ def main():
     tcpSerSock.bind(ADDR)
     tcpSerSock.listen(5)
     print 'Server started at %s:%d, waiting for connection...' % (HOST, PORT)
-    # Wait for new connection, blocking
-    tcpCliSock, addr = tcpSerSock.accept()
-    print '...connected from ', addr 
-    # Initialize event recording
+
+    # Wait for App agent connect, blocking
+    tcpAppAgentSock, addr = tcpSerSock.accept()
+    print 'Connected from App agent ', addr 
+    # Wait for Klog agent connect, blocking
+    tcpKlogAgentSock, addr = tcpSerSock.accept()
+    print 'Connected from Klog agent ', addr
+
+    # Start recording and analyzing
     klogRecFile = open("klogs.txt", "w") 
     # Create socket to communicate with App Agent
-    AppSerIP = "127.0.0.1"
-    AppSerPORT = 8099
-    udpCliSock = socket(AF_INET, SOCK_DGRAM)
-
     while True:
-        logbuf = tcpCliSock.recv(KLOGSIZE)
-        e = rawStream2Klog(logbuf)
+        logbuf = tcpKlogAgentSock.recv(KLOGSIZE)
+        e = rawStream2Klog(logbuf, tcpKlogAgentSock)
         if not e:
             print 'Sock recv error!'
+            # send back nack
             continue;
         else:
             checkRes = None
             writeKlogToFile(klogRecFile, e)
             if e.param and e.param.startswith("AT"):
-                checkRes = checkTelephony(e, tcpCliSock)
+                checkRes = checkTelephony(e, tcpKlogAgentSock)
             if checkRes:
-                # Send alert to App Agent
-                rc = udpCliSock.sendto(str(checkRes), (AppSerIP, AppSerPORT))
-                print 'Send alert to App Agent %d' % (rc)
-
+                # Send request to App Agent
+                code = 0
+                rc = tcpAppAgentSock.send(struct.pack('i', code))
+                print 'request active app ID'
+                uidbuf = tcpAppAgentSock.recv(4)
+                uid = struct.unpack('!i', uidbuf)
+                print 'Active App: ', uid
+                # 
+                #print 'Send alert to App Agent %d' % (rc)
 
     klogRecFile.close()
-    tcpCliSock.close()
+    tcpKlogAgentSock.close()
     tcpSerSock.close()
 #-------------------------------------------------------------------------------
 # Check the signatures of sms and call related signatures
@@ -116,20 +123,24 @@ def checkTelephony(e, tcpCliSock):
             return AT_INCALL
     return None 
 
-def rawStream2Klog(logbuf):
+def rawStream2Klog(logbuf, sock):
     klog_fmt = "iiiiiii256s"
     KlogEntry = namedtuple('KlogEntry', 'type hour min sec pid uid param_size param')
 
     if not logbuf or len(logbuf) != KLOGSIZE:
+        sock.send('n')
         return None
     e = KlogEntry._make(struct.unpack(klog_fmt, logbuf))
 
     if not  getKlogType(e):
+        sock.send('n')
         return None
+
+    sock.send('a')
     return e
 
 def getKlogType(klog):
-    if klog.type > len(KlogType)-1:
+    if klog.type > len(KlogType)-1 or klog.type < 0:
         return None
     else:
         return KlogType[klog.type]
@@ -154,14 +165,14 @@ def probeSmsSubmit(klog, sock):
 #        return None
     if klog.param.startswith("AT+CMGS="):
         # Swallow <CR>
-        e = rawStream2Klog(sock.recv(KLOGSIZE))
+        e = rawStream2Klog(sock.recv(KLOGSIZE), sock)
         if not e:
             return None
         printKlogEntry(e)
         print 80*'-'
         # SMSC.addr + TPDU
         while True:
-            e = rawStream2Klog(sock.recv(KLOGSIZE)) 
+            e = rawStream2Klog(sock.recv(KLOGSIZE), sock) 
             if not e:
                 return None
             printKlogEntry(e)
@@ -186,7 +197,7 @@ def probeSmsReceive(klog, sock):
 #        return None
     if klog.param.startswith("AT+CNMA=1"):
         # Swallow CTL+M
-        e = rawStream2Klog(sock.recv(KLOGSIZE))
+        e = rawStream2Klog(sock.recv(KLOGSIZE), sock)
         if not e:
             return None
         printKlogEntry(e)
@@ -194,7 +205,7 @@ def probeSmsReceive(klog, sock):
         # Polling for SMS-DELIVER PDU
         count = 5
         while count:
-            e = rawStream2Klog(sock.recv(KLOGSIZE))
+            e = rawStream2Klog(sock.recv(KLOGSIZE), sock)
             if not e:
                 return None
             printKlogEntry(e)
@@ -230,7 +241,7 @@ def probeIncomingCall(klog, sock):
         return None
     if klog.param.startswith("AT+CLCC"):
         # Swallow CTL+M
-        e = rawStream2Klog(sock.recv(KLOGSIZE))
+        e = rawStream2Klog(sock.recv(KLOGSIZE), sock)
         if not e:
             return None
         printKlogEntry(e)
@@ -238,7 +249,7 @@ def probeIncomingCall(klog, sock):
         # CLCC Response
         count = 5
         while count:
-            e = rawStream2Klog(sock.recv(KLOGSIZE)) 
+            e = rawStream2Klog(sock.recv(KLOGSIZE), sock) 
             if not e:
                 return None
             printKlogEntry(e)

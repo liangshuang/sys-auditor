@@ -34,7 +34,7 @@ public class BenchActivity extends Activity implements OnClickListener {
 		setContentView(R.layout.activity_bench);
 		
 		/* Main activity initialization */
-		smsManager = SmsManager.getDefault();
+		
 		teleMgr = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
 		// Buttons
 		butt_sendmsg = (Button)findViewById(R.id.button_sendmsg);
@@ -94,7 +94,7 @@ public class BenchActivity extends Activity implements OnClickListener {
 	}
 	void sendSMS(String to, String msg)
 	{
-
+		smsManager = SmsManager.getDefault();
 		smsManager.sendTextMessage(to, null, msg, null, null);
 		Log.d(LOG_TAG, String.format("Send out SMS %s to %s\n", msg, to));
 	}

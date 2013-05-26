@@ -52,6 +52,7 @@ void print_help()
     printf("\tklogagent <-u uid1> [-u uid2] ... [-u uidn] [-d]\n");
     printf("Options:\n");
     printf("\t-u - specify the app's uids to monitor\n");
+    printf("\t-k - specify the keyword to monitor\n");
     printf("\t-d - enable printing debug messages\n");
     printf("\n");
 
@@ -121,7 +122,7 @@ int klogagent_main(int argc, char* argv[])
     /* Transer logs to server */
     //int fd = STDOUT_FILENO;
     int debugfd = open("/sys/kernel/debug/klogger", O_RDWR);
-    printf("%d\n", debugfd);
+    //printf("%d\n", debugfd);
     //printf("Kernel logs:\n");
     while(!klog_dump(debugfd, tcpCliSock));
     return 0;
@@ -149,13 +150,15 @@ int klog_dump(int in_fd, int out_fd)
     /* Upload logs to server */
     for(i = 0; i < res; i++) {
         if(filter_uid(klog_buf[i].uid) || 
-            ( key_cnt > 0 && klog_buf[i].param_size > 0 && filter_key(klog_buf[i].param, FilterKey) )) 
+            ( klog_buf[i].param_size > 0 && filter_key(klog_buf[i].param, FilterKey) )) 
         {
             write(out_fd, &klog_buf[i], sizeof(struct klog_entry));
             // Wait for ack or nack
             read(out_fd, ackchr, 1);
+            /*
             if(ackchr[0] == 'n' || ackchr[0] == 'a')
                 PRINT("Received ack or nack");
+            */
         }
     }
     return 0;
@@ -180,6 +183,8 @@ int filter_uid(int uid)
 
 int filter_key(const char *param, const char *key)
 {
+    if(key_cnt == 0)
+        return FALSE;
     if(strstr(param, key))
         return  TRUE;
     else return FALSE;

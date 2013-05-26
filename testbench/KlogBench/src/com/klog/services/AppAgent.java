@@ -17,28 +17,44 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import android.R;
 import android.app.ActivityManager;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Looper;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
-public class CurVisibleApp extends Service {
+public class AppAgent extends Service {
 	private static final String LOG_TAG = "service.CurVisibleApp"; 
+	//public static final String SERVER_IP = "10.0.2.2";
+	public static final String SERVER_IP = "129.32.94.255";
 	public static final String KEY_POLL = "service.key.poll";
 	public static final int CMD_START_POLL = 0;
 	public static final int CMD_STOP_POLL = 1;
+	
+	private static final int WARN_SMS = 1;
+	private static final int WARN_CALL = 2;
 	
 	TimerTask pollRunningTask;
 	Timer pollRunningTimer;
 	
 	ServerSocket tcpSerSock;
 	AppAgentThread appServer;
-	public CurVisibleApp() {
+	
+	private NotificationManager ntfMgr = null;  
+	private static final int WARN_NOTIFY_ID = 1001;
+	private int numNotify = 0;
+	public AppAgent() {
 
 	}
 
@@ -62,13 +78,6 @@ public class CurVisibleApp extends Service {
 				}};
 			pollRunningTimer = new Timer();
 			pollRunningTimer.schedule(pollRunningTask, 5*1000, 5*1000);
-			// Listen for server request and alert
-/*			try {
-				tcpSerSock = new ServerSocket(8099);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}*/
 			
 			appServer = new AppAgentThread();
 			appServer.start();
@@ -114,20 +123,23 @@ public class CurVisibleApp extends Service {
 	class AppAgentThread extends Thread {
 		@Override
 		public void run() {
+		
 			Log.d(LOG_TAG, "App agent thread is running!");
 			Socket agentSock = new Socket();
 			/* connect to server */
 			try {
-				SocketAddress serverAddr = new InetSocketAddress(InetAddress.getByName("10.0.2.2"), 8888);
+				SocketAddress serverAddr = new InetSocketAddress(InetAddress.getByName(SERVER_IP), 8888);
 				agentSock.connect(serverAddr);
 			} catch (IOException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 			Log.d(LOG_TAG, "Connected to server");
+			ntfMgr = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+			
 			/* Start Klog agent */
-/*			try {
-				Process klogProcess = Runtime.getRuntime().exec("klogagent -d");
+			/*try {
+				Process klogProcess = Runtime.getRuntime().exec("klogagent");
 				BufferedReader br = new BufferedReader(new InputStreamReader(klogProcess.getInputStream()));
 				Log.d(LOG_TAG, br.readLine());
 			} catch (IOException e1) {
@@ -154,6 +166,14 @@ public class CurVisibleApp extends Service {
 						sockOStream.flush();
 						Log.d(LOG_TAG, "Send back UID " + uid);
 						break;
+					case WARN_SMS:
+						Log.d(LOG_TAG, "Sending SMS in background");
+						notifyLogEvent("SMS in background");
+						break;
+					case WARN_CALL:
+						Log.d(LOG_TAG, "Calling in background");
+						notifyLogEvent("Calling in background");
+						break;
 					default:
 						Log.d(LOG_TAG, "Request " + reqCode);
 					}
@@ -162,7 +182,23 @@ public class CurVisibleApp extends Service {
 					e.printStackTrace();
 				}
 			}
+
 		}
+	}
+	public void notifyLogEvent(String info) {
+		Intent resultIntent = new Intent(this, AppAgent.class);
+		PendingIntent resultPendingIntent = PendingIntent.getActivity(getBaseContext(), 0, 
+				resultIntent, Intent.FLAG_ACTIVITY_NEW_TASK);
+		
+		NotificationCompat.Builder mbuilder = new NotificationCompat.Builder(this)
+			.setSmallIcon(R.drawable.alert_light_frame)
+			.setContentTitle("Warning from klog server")
+			.setContentIntent(resultPendingIntent)
+			.setDefaults(Notification.DEFAULT_SOUND)
+			.setAutoCancel(true)
+			.setNumber(++numNotify);
+		
+		ntfMgr.notify(WARN_NOTIFY_ID, mbuilder.build());
 	}
 	@Override
 	public void onDestroy() {

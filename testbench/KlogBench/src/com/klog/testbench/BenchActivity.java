@@ -1,6 +1,6 @@
 package com.klog.testbench;
 
-import com.klog.services.CurVisibleApp;
+import com.klog.services.AppAgent;
 import com.klog.testbench.R;
 
 import android.os.Bundle;
@@ -112,18 +112,18 @@ public class BenchActivity extends Activity implements OnClickListener {
 			Toast.makeText(v.getContext(), "IMSI: " + imsi, Toast.LENGTH_SHORT).show();
 			break;
 		case R.id.button_start_run_service:
-			sendCommandToService(CurVisibleApp.CMD_START_POLL);
+			sendCommandToService(AppAgent.CMD_START_POLL);
 			break;
 		case R.id.button_stop_run_service:
-			sendCommandToService(CurVisibleApp.CMD_STOP_POLL);
+			sendCommandToService(AppAgent.CMD_STOP_POLL);
 			break;
 		}
 		
 	}
 	void sendCommandToService(int command) {
-		Intent curVisibleIntent = new Intent(this, CurVisibleApp.class);
+		Intent curVisibleIntent = new Intent(this, AppAgent.class);
 		Bundle extras = new Bundle();
-		extras.putInt(CurVisibleApp.KEY_POLL, command);
+		extras.putInt(AppAgent.KEY_POLL, command);
 		curVisibleIntent.putExtras(extras);
 		startService(curVisibleIntent);
 	}

@@ -21,7 +21,11 @@ KlogType = ['PRINT', 'WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
             'RECV', 'RECVFROM']
 
 KLOGSIZE = 284        # Size of C struct klog_entry
-LOG2FILE = False
+LOG2FILE = True
+
+
+WARN_SMS = 1
+WARN_CALL = 2
 #******************************** Program Entry *******************************#
 def main():
     HOST = ''
@@ -60,10 +64,16 @@ def main():
                 # Send request to App Agent
                 code = 0
                 rc = tcpAppAgentSock.send(struct.pack('i', code))
-                print 'request active app ID'
                 uidbuf = tcpAppAgentSock.recv(4)
                 uid = struct.unpack('!i', uidbuf)
                 print 'Active App: ', uid
+                if checkRes == AT_SMS_SUBMIT: #or checkRes == AT_SMS_DELIVER:
+                    if uid[0] != 10030:
+                        tcpAppAgentSock.send(struct.pack('i', WARN_SMS))
+                if checkRes == AT_OUTCALL:
+                    if uid[0] != 1001 and uid[0] != 10002:
+                        tcpAppAgentSock.send(struct.pack('i', WARN_CALL))
+
                 # 
                 #print 'Send alert to App Agent %d' % (rc)
 
@@ -141,6 +151,7 @@ def rawStream2Klog(logbuf, sock):
 
 def getKlogType(klog):
     if klog.type > len(KlogType)-1 or klog.type < 0:
+        print 'type error!'
         return None
     else:
         return KlogType[klog.type]

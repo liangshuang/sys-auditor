@@ -43,6 +43,7 @@ struct dentry* dir, *debugfile;
 /********************************** Protocalls ********************************/
 
 /******************************** Program Entry  ******************************/
+#if 0
 static ssize_t logger_read(struct file *file, char __user *userbuf,
                                 size_t count, loff_t *ppos)
 {
@@ -72,7 +73,7 @@ static ssize_t logger_read(struct file *file, char __user *userbuf,
     //printk(KERN_WARNING "klogger: read end\n");
     return count;
 } 
-
+#endif
 //-----------------------------------------------------------------------------
 // Modified read for klog queue
 //-----------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 #include <linux/sched.h>            /* current */
 #include "klogger.h"
 #include "syscall_klog.h"
-#include "klog_queue.h""
+#include "klog_queue.h"
 /********************************** Definitions ******************************/
 #define HOOK_SOCKET     0
 
@@ -14,6 +14,7 @@
 
 #define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
 //#define SYSCALL_TBL_ADDR 0xc000ed44     /* cis-du02 goldfish 3.4 kernel */
+//#define SYSCALL_TBL_ADDR 0xc0010568
 #if EN_KLOG_PRINT
 #define KLOG_PRINT(fmt, args...)    char mybuf[MYPRINT_BUF_SIZE]; \
     sprintf(mybuf, fmt, ##args); \
@@ -73,7 +74,7 @@ struct time_m get_time(void)
     callTime.sec = sec;
     return callTime;
 }
-inline static void add_log_entry(enum klog_type type, char* param, int param_size)
+inline static void add_log_entry(enum klog_type type, const char* param, int param_size)
 {
     struct klog_entry e;
     memset(&e, 0, sizeof(struct klog_entry));
@@ -131,7 +132,6 @@ hooked_read(int fd, char *buf, size_t count)
 asmlinkage ssize_t
 hooked_open(const char *pathname, int flags)
 {
-    struct time_m callTime = get_time();
     ssize_t ret;
 
     ret = orig_open(pathname, flags);

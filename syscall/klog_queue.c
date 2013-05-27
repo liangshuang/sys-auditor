@@ -39,12 +39,13 @@ int klog_enqueue(QueueItem *item)
 int klog_dequeue(QueueItem *buf, int count)
 {
     int avail = klog_avail();
+    int forward;
     if(count == 0 || avail == 0)
         return 0;
     if(count > avail)
         count = avail;
     /* From front to rear */
-    int forward = KLOG_QUEUE_SIZE - front;
+    forward = KLOG_QUEUE_SIZE - front;
     if(count <= forward) {
         memcpy(buf, &KlogQueue[front], sizeof(QueueItem)*count);
     }
@@ -62,13 +63,14 @@ int klog_dequeue_to_user(char __user *userbuf, int count)
 {
     int avail = klog_avail();
     int ret;
+    int forward;
     /* Check for available elements in the queue  */
     if(count == 0 || avail == 0)
         return 0;
     if(count > avail)
         count = avail;
     /* From front to rear */
-    int forward = KLOG_QUEUE_SIZE - front;
+    forward = KLOG_QUEUE_SIZE - front;
     if(count <= forward) {
         ret = copy_to_user(userbuf, &KlogQueue[front], sizeof(QueueItem)*count);
         count -= ret;

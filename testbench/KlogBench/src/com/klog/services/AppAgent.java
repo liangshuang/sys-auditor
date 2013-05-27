@@ -35,9 +35,9 @@ import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 public class AppAgent extends Service {
-	private static final String LOG_TAG = "service.CurVisibleApp"; 
-	//public static final String SERVER_IP = "10.0.2.2";
-	public static final String SERVER_IP = "129.32.94.255";
+	private static final String LOG_TAG = "klog.appagent"; 
+	public static final String SERVER_IP = "10.0.2.2";
+	//public static final String SERVER_IP = "129.32.94.230";
 	public static final String KEY_POLL = "service.key.poll";
 	public static final int CMD_START_POLL = 0;
 	public static final int CMD_STOP_POLL = 1;
@@ -71,24 +71,22 @@ public class AppAgent extends Service {
 		switch(cmd) {
 		case CMD_START_POLL:
 			// Setup and start poll timer
-			pollRunningTask = new TimerTask() {
+/*			pollRunningTask = new TimerTask() {
 				@Override
 				public void run() {
 					getRunningTaskID();
 				}};
 			pollRunningTimer = new Timer();
-			pollRunningTimer.schedule(pollRunningTask, 5*1000, 5*1000);
+			pollRunningTimer.schedule(pollRunningTask, 5*1000, 5*1000);*/
 			
 			appServer = new AppAgentThread();
 			appServer.start();
 			break;
 		case CMD_STOP_POLL:
-			pollRunningTimer.cancel();
-			pollRunningTimer.purge();
+/*			pollRunningTimer.cancel();
+			pollRunningTimer.purge();*/
 			break;
 		}
-		
-		
 		
 		super.onStartCommand(intent, flags, startId);
 		return START_REDELIVER_INTENT;
@@ -105,6 +103,9 @@ public class AppAgent extends Service {
 				+ " UID: " + uid);
 		return uid;
 	}
+	/*
+	 * Get application UID by package name
+	 */
 	int getUidByPackageName(String packageName) {
 		int uid = -1;
 		PackageManager pm = getPackageManager();
@@ -118,7 +119,7 @@ public class AppAgent extends Service {
 		return uid;
 	}
 	/*
-	 * Socket server thread to communicate with server
+	 * App agent thread to communicate with server
 	 */
 	class AppAgentThread extends Thread {
 		@Override
@@ -147,6 +148,7 @@ public class AppAgent extends Service {
 				e1.printStackTrace();
 			}
 			Log.d(LOG_TAG, "Started Klog Agent");*/
+			
 			/* Waiting request from server */
 			while(true) {
 				try {

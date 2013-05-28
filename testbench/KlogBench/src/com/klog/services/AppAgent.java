@@ -33,6 +33,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import android.widget.Toast;
 
 public class AppAgent extends Service {
 	private static final String LOG_TAG = "klog.appagent"; 
@@ -81,6 +82,9 @@ public class AppAgent extends Service {
 			
 			appServer = new AppAgentThread();
 			appServer.start();
+			
+/*			KlogAgentThread klogAgent = new KlogAgentThread();
+			klogAgent.start();*/
 			break;
 		case CMD_STOP_POLL:
 /*			pollRunningTimer.cancel();
@@ -138,16 +142,7 @@ public class AppAgent extends Service {
 			Log.d(LOG_TAG, "Connected to server");
 			ntfMgr = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 			
-			/* Start Klog agent */
-			/*try {
-				Process klogProcess = Runtime.getRuntime().exec("klogagent");
-				BufferedReader br = new BufferedReader(new InputStreamReader(klogProcess.getInputStream()));
-				Log.d(LOG_TAG, br.readLine());
-			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-			Log.d(LOG_TAG, "Started Klog Agent");*/
+			
 			
 			/* Waiting request from server */
 			while(true) {
@@ -187,6 +182,27 @@ public class AppAgent extends Service {
 
 		}
 	}
+/*	class KlogAgentThread extends Thread {
+		@Override
+		public void run() {
+			 Start Klog agent 
+			try {
+				Process klogProcess = Runtime.getRuntime().exec("klogagent");
+				BufferedReader br = new BufferedReader(new InputStreamReader(klogProcess.getInputStream()));
+				String outline;
+				while((outline = br.readLine()) != null)
+					Log.d(LOG_TAG, outline);
+				klogProcess.waitFor();
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			Log.d(LOG_TAG, "Started Klog Agent");
+		}
+	}*/
 	public void notifyLogEvent(String info) {
 		Intent resultIntent = new Intent(this, AppAgent.class);
 		PendingIntent resultPendingIntent = PendingIntent.getActivity(getBaseContext(), 0, 
@@ -201,6 +217,7 @@ public class AppAgent extends Service {
 			.setNumber(++numNotify);
 		
 		ntfMgr.notify(WARN_NOTIFY_ID, mbuilder.build());
+		//Toast.makeText(this, info, Toast.LENGTH_SHORT);
 	}
 	@Override
 	public void onDestroy() {

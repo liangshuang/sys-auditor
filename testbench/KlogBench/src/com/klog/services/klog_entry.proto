@@ -1,0 +1,36 @@
+package klogtypes;
+option java_package = "com.klog.services";
+option java_outer_classname = "KlogEntryProtos";
+
+message KlogEntry {
+	enum KlogType {
+		MYKLOG_PRINT = 0;
+	    MYKLOG_WRITE = 1;
+	    MYKLOG_READ = 2;
+	    MYKLOG_OPEN = 3;
+	    MYKLOG_CLOSE = 4;
+	    MYKLOG_SOCKETCALL = 5;
+	    MYKLOG_SOCKET = 6;
+	    MYKLOG_BIND = 7;
+	    MYKLOG_CONNECT = 8;
+	    MYKLOG_LISTEN = 9;
+	    MYKLOG_ACCEPT = 10;
+	    MYKLOG_SEND = 11;
+	    MYKLOG_SENDTO = 12;
+	    MYKLOG_RECV = 13;
+	    MYKLOG_RECVFROM = 14;
+	}
+	message LogTime {
+		required int32 hour = 1;
+		required int32 min = 2;
+		required int32 sec = 3;
+	}
+	required KlogType type = 1;
+	required LogTime ts = 2;
+	required uint32 pid = 3;
+	required uint32 uid = 4;
+	required uint32 param_size = 5;
+	required bytes param = 6;
+	
+	
+}

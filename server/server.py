@@ -38,13 +38,15 @@ def main():
     tcpSerSock.listen(5)
     print 'Server started at %s:%d, waiting for connection...' % (HOST, PORT)
 
-    # Wait for App agent connect, blocking
-    tcpAppAgentSock, addr = tcpSerSock.accept()
-    print 'Connected from App agent ', addr 
     # Wait for Klog agent connect, blocking
     tcpKlogAgentSock, addr = tcpSerSock.accept()
     print 'Connected from Klog agent ', addr
 
+    # Wait for App agent connect, blocking
+    tcpAppAgentSock, addr = tcpSerSock.accept()
+    print 'Connected from App agent ', addr 
+    # Start klog agent
+    tcpKlogAgentSock.send("start")
     # Start recording and analyzing
     klogRecFile = open("klogs.txt", "w") 
     # Create socket to communicate with App Agent
@@ -63,16 +65,21 @@ def main():
             if checkRes:
                 # Send request to App Agent
                 code = 0
-                rc = tcpAppAgentSock.send(struct.pack('i', code))
+                rc = tcpAppAgentSock.send(struct.pack('!i', code))
                 uidbuf = tcpAppAgentSock.recv(4)
                 uid = struct.unpack('!i', uidbuf)
                 print 'Active App: ', uid
-                if checkRes == AT_SMS_SUBMIT: #or checkRes == AT_SMS_DELIVER:
+                if checkRes[0] == AT_SMS_SUBMIT: #or checkRes == AT_SMS_DELIVER:
                     if uid[0] != 10030:
-                        tcpAppAgentSock.send(struct.pack('i', WARN_SMS))
-                if checkRes == AT_OUTCALL:
+                        print 'Send SMS [%s] in background to %s' % (checkRes[2], checkRes[1])
+                        tcpAppAgentSock.send(struct.pack('!i', WARN_SMS))
+                        tcpAppAgentSock.send(checkRes[1])
+                        #tcpAppAgentSock.send(checkRes[2])
+                if checkRes[0] == AT_OUTCALL:
                     if uid[0] != 1001 and uid[0] != 10002:
-                        tcpAppAgentSock.send(struct.pack('i', WARN_CALL))
+                        print 'Make phone call in background to ', checkRes[1]
+                        tcpAppAgentSock.send(struct.pack('!i', WARN_CALL))
+                        tcpAppAgentSock.send(checkRes[1])
 
                 # 
                 #print 'Send alert to App Agent %d' % (rc)
@@ -103,21 +110,21 @@ def checkTelephony(e, tcpCliSock):
         print 'Send SMS [%s] to %s' % (pdu.user_data, pdu.tp_address)
         #klogRecFile.write('Send SMS [%s] to %s\n' % (pdu.user_data, pdu.tp_address))
         #klogRecFile.write(80*'='+'\n')
-        return AT_SMS_SUBMIT
+        return (AT_SMS_SUBMIT, pdu.tp_address, pdu.user_data)
     # Probe SMS-DELIVER
     pdu = probeSmsReceive(e, tcpCliSock)
     if pdu:
         print 'Receive SMS [%s] from %s' % (pdu.user_data, pdu.tp_address)
         #klogRecFile.write('Receive SMS [%s] from %s\n' % (pdu.user_data, pdu.tp_address))
         #klogRecFile.write(80*'='+'\n')
-        return AT_SMS_DELIVER
+        return (AT_SMS_DELIVER, pdu.tp_address, pdu.user_data)
     # Probe outgoing call by 'ATD'
     dst_num = probeOutgoingCall(e)
     if dst_num:
         print 'Calling %s' % (dst_num)
         #klogRecFile.write('Calling %s\n' % (dst_num))
         #klogRecFile.write(80*'='+'\n')
-        return AT_OUTCALL
+        return (AT_OUTCALL, dst_num)
     # Probe incoming call
     clcc_response = probeIncomingCall(e, tcpCliSock)
     if clcc_response:
@@ -125,12 +132,12 @@ def checkTelephony(e, tcpCliSock):
             print 'Outgoing call %s' % (clcc_response[1])
             #klogRecFile.write('Outgoing call %s\n' % (clcc_response[1]))
             #klogRecFile.write(80*'='+'\n')
-            return AT_OUTCALL
+            return (AT_OUTCALL, clcc_response[1])
         else:
             print 'Incoming call %s' % (clcc_response[1])
             #klogRecFile.write('Incoming call %s\n' % (clcc_response[1]))
             #klogRecFile.write(80*'='+'\n')
-            return AT_INCALL
+            return (AT_INCALL, clcc_response[1])
     return None 
 
 def rawStream2Klog(logbuf, sock):

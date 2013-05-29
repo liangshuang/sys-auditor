@@ -16,6 +16,7 @@
 
 #include <string.h>
 #include <fcntl.h>
+#include <err.h>
 #include "syscall_klog.h"
 /****************************** Global Declarations ***************************/
 #define MX_UIDS    32
@@ -118,7 +119,19 @@ int klogagent_main(int argc, char* argv[])
         exit(-1);
     }
     //*/
-
+    if(daemon(0,0) == -1)
+        err(1, NULL);
+    /* Wait for command from the servier */
+    char cmdBuf[64];
+    int rc;
+    while(1) {
+        rc = read(tcpCliSock, cmdBuf, 64);  
+        if(rc == -1) return -1;
+        cmdBuf[rc] = '\0';
+        if(strcmp(cmdBuf,"start") == 0) {
+            break;
+        }
+    }
     /* Transer logs to server */
     //int fd = STDOUT_FILENO;
     int debugfd = open("/sys/kernel/debug/klogger", O_RDWR);

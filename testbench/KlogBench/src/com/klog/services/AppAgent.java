@@ -1,7 +1,10 @@
 package com.klog.services;
 
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -16,6 +19,8 @@ import java.net.SocketAddress;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import com.klog.services.KlogEntryProtos.KlogEntry;
 
 import android.R;
 import android.app.ActivityManager;
@@ -34,6 +39,7 @@ import android.os.Looper;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import android.widget.Toast;
+
 
 public class AppAgent extends Service {
 	private static final String LOG_TAG = "klog.appagent"; 
@@ -85,6 +91,26 @@ public class AppAgent extends Service {
 			
 /*			KlogAgentThread klogAgent = new KlogAgentThread();
 			klogAgent.start();*/
+			
+/*			try {
+				Process klogProcess = Runtime.getRuntime().exec("klogagent -u 1001");
+				klogProcess.waitFor();
+				BufferedReader br = new BufferedReader(new InputStreamReader(klogProcess.getInputStream()));
+				String outline;
+				while((outline = br.readLine()) != null)
+					Log.d(LOG_TAG, outline);
+				
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				Log.d(LOG_TAG, "KlogAgent IOException");
+				e1.printStackTrace();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				Log.d(LOG_TAG, "KlogAgent InterruptedException");
+				e.printStackTrace();
+			}
+			Log.d(LOG_TAG, "Started Klog Agent");*/
+			
 			break;
 		case CMD_STOP_POLL:
 /*			pollRunningTimer.cancel();
@@ -147,29 +173,42 @@ public class AppAgent extends Service {
 			/* Waiting request from server */
 			while(true) {
 				try {
-					Reader sockReader = new InputStreamReader(agentSock.getInputStream());
+					//Reader sockReader = new InputStreamReader(agentSock.getInputStream());
+					DataInputStream sockIStream = new DataInputStream(agentSock.getInputStream());
 					DataOutputStream sockOStream = new DataOutputStream(agentSock.getOutputStream());
-					int reqCode = sockReader.read();
+					byte[] msgBuf = new byte[128];
+					String dst_addr;
+					String msg;
+					//int reqCode = sockReader.read();
+					int reqCode = sockIStream.readInt();
 					if(reqCode == -1) {
-						agentSock.close();
+						sockIStream.close();
+						agentSock.close();				
 						break;
 					}
+					// Answer request or response to warning
 					switch(reqCode) {
 					case 0:
 						int uid = getRunningTaskID();
-						//sockWriter.write(String.format("%d", uid).toCharArray(), 0, 4);
 						sockOStream.writeInt(uid);
-				
 						sockOStream.flush();
 						Log.d(LOG_TAG, "Send back UID " + uid);
 						break;
 					case WARN_SMS:
 						Log.d(LOG_TAG, "Sending SMS in background");
-						notifyLogEvent("SMS in background");
+						sockIStream.read(msgBuf);
+						
+						dst_addr = new String(msgBuf, "UTF8");
+/*						sockIStream.read(msgBuf);
+						msg = msgBuf.toString();*/
+						Log.d(LOG_TAG, "To "+dst_addr + "|"+msgBuf[0] +msgBuf[1]);
+						notifyLogEvent("Warning: SMS", "To "+dst_addr);
 						break;
 					case WARN_CALL:
 						Log.d(LOG_TAG, "Calling in background");
-						notifyLogEvent("Calling in background");
+						sockIStream.read(msgBuf);
+						dst_addr = msgBuf.toString();
+						notifyLogEvent("Warning: Phone Call", "To "+dst_addr);
 						break;
 					default:
 						Log.d(LOG_TAG, "Request " + reqCode);
@@ -182,35 +221,39 @@ public class AppAgent extends Service {
 
 		}
 	}
-/*	class KlogAgentThread extends Thread {
+	class KlogAgentThread extends Thread {
 		@Override
 		public void run() {
-			 Start Klog agent 
+			
+
+/*			byte[] klogbuf = new byte[284];
 			try {
-				Process klogProcess = Runtime.getRuntime().exec("klogagent");
-				BufferedReader br = new BufferedReader(new InputStreamReader(klogProcess.getInputStream()));
-				String outline;
-				while((outline = br.readLine()) != null)
-					Log.d(LOG_TAG, outline);
-				klogProcess.waitFor();
-			} catch (IOException e1) {
+				FileInputStream fin = new FileInputStream("/sys/kernel/debug/klogger");
+				fin.read(klogbuf, 0, 1);
+				Log.d(LOG_TAG, "Read: " + klogbuf);
+				KlogEntry kentry = KlogEntry.parseFrom(klogbuf);
+				Log.d(LOG_TAG, "UID: " + kentry.getUid());
+			} catch (FileNotFoundException e) {
 				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
+				Log.d(LOG_TAG, "FileNotFoundException");
 				e.printStackTrace();
-			}
-			Log.d(LOG_TAG, "Started Klog Agent");
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				Log.d(LOG_TAG, "IOException");
+				e.printStackTrace();
+				
+			}*/
 		}
-	}*/
-	public void notifyLogEvent(String info) {
+	}
+	public void notifyLogEvent(String title, String info) {
 		Intent resultIntent = new Intent(this, AppAgent.class);
 		PendingIntent resultPendingIntent = PendingIntent.getActivity(getBaseContext(), 0, 
 				resultIntent, Intent.FLAG_ACTIVITY_NEW_TASK);
 		
 		NotificationCompat.Builder mbuilder = new NotificationCompat.Builder(this)
-			.setSmallIcon(R.drawable.alert_light_frame)
-			.setContentTitle("Warning from klog server")
+			.setSmallIcon(R.drawable.ic_notification_overlay)
+			.setContentTitle(title)
+			.setContentInfo(info)
 			.setContentIntent(resultPendingIntent)
 			.setDefaults(Notification.DEFAULT_SOUND)
 			.setAutoCancel(true)

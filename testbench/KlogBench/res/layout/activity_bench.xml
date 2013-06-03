@@ -13,7 +13,10 @@
         style="?android:attr/buttonStyleSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="27dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginLeft="19dp"
+        android:layout_marginTop="16dp"
         android:text="Send SMS" />
 
     <Button
@@ -23,44 +26,73 @@
         android:layout_height="wrap_content"
         android:layout_alignLeft="@+id/button_sendmsg"
         android:layout_below="@+id/button_sendmsg"
+        android:layout_marginTop="62dp"
         android:text="Read Contacts" />
+
+    <Button
+        android:id="@+id/button_call"
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/button_sendmsg"
+        android:layout_below="@+id/button_sendmsg"
+        android:text="Call Phone" />
+
+    <EditText
+        android:id="@+id/editText_smsnum"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/button_sendmsg"
+        android:layout_alignBottom="@+id/button_sendmsg"
+        android:layout_toRightOf="@+id/button_readcontact"
+        android:ems="10"
+        android:inputType="phone"
+        android:text="2153014655" >
+
+        <requestFocus />
+    </EditText>
+
+    <EditText
+        android:id="@+id/editText_callnum"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/button_call"
+        android:layout_alignBottom="@+id/button_call"
+        android:layout_alignLeft="@+id/editText_smsnum"
+        android:layout_alignRight="@+id/editText_smsnum"
+        android:ems="10"
+        android:inputType="phone"
+        android:text="2153014655" />
 
     <Button
         android:id="@+id/button_imei"
         style="?android:attr/buttonStyleSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/button_readcontact"
-        android:layout_below="@+id/button_readcontact"
+        android:layout_alignBaseline="@+id/button_imsi"
+        android:layout_alignBottom="@+id/button_imsi"
+        android:layout_alignRight="@+id/editText_callnum"
         android:text="IMEI" />
-
-    <Button
-        android:id="@+id/button_imsi"
-        style="?android:attr/buttonStyleSmall"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/button_readcontact"
-        android:layout_toRightOf="@+id/button_imei"
-        android:text="IMSI" />
 
     <Button
         android:id="@+id/button_start_run_service"
         style="?android:attr/buttonStyleSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/button_imei"
-        android:layout_below="@+id/button_imei"
+        android:layout_alignLeft="@+id/button_readcontact"
+        android:layout_below="@+id/button_readcontact"
+        android:layout_marginTop="21dp"
         android:text="RunningService" />
 
     <Button
-        android:id="@+id/button_stop_run_service"
+        android:id="@+id/button_imsi"
         style="?android:attr/buttonStyleSmall"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/button_start_run_service"
-        android:layout_alignBottom="@+id/button_start_run_service"
-        android:layout_marginLeft="20dp"
-        android:layout_toRightOf="@+id/button_start_run_service"
-        android:text="StopService" />
+        android:layout_alignBaseline="@+id/button_readcontact"
+        android:layout_alignBottom="@+id/button_readcontact"
+        android:layout_marginRight="18dp"
+        android:layout_toLeftOf="@+id/button_imei"
+        android:text="IMSI" />
 
 </RelativeLayout>

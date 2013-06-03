@@ -19,13 +19,14 @@ import smspdu
 KlogType = ['PRINT', 'WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
             'SOCKET', 'BIND', 'CONNECT', 'LISTEN', 'ACCEPT', 'SEND', 'SENDTO',
             'RECV', 'RECVFROM']
-
+PremiumPrefix = ('900', '1900')
 KLOGSIZE = 284        # Size of C struct klog_entry
 LOG2FILE = True
 
 
 WARN_SMS = 1
 WARN_CALL = 2
+WARN_PREMIUM_SMS = 3
 #******************************** Program Entry *******************************#
 def main():
     HOST = ''
@@ -63,19 +64,23 @@ def main():
             if e.param and e.param.startswith("AT"):
                 checkRes = checkTelephony(e, tcpKlogAgentSock)
             if checkRes:
-                # Send request to App Agent
-                code = 0
-                rc = tcpAppAgentSock.send(struct.pack('!i', code))
+                # Get current active UID
+                #code = 0
+                rc = tcpAppAgentSock.send(struct.pack('!i', 0))
                 uidbuf = tcpAppAgentSock.recv(4)
                 uid = struct.unpack('!i', uidbuf)
                 print 'Active App: ', uid
+                dest_num = checkRes[1]
                 if checkRes[0] == AT_SMS_SUBMIT: #or checkRes == AT_SMS_DELIVER:
                     if uid[0] != 10030:
                         print 'Send SMS [%s] in background to %s' % (checkRes[2], checkRes[1])
-                        tcpAppAgentSock.send(struct.pack('!i', WARN_SMS))
+                        code = WARN_SMS
+                        if isPremium(dest_num):         
+                            code = WARN_PREMIUM_SMS
+                        tcpAppAgentSock.send(struct.pack('!i', code))
                         tcpAppAgentSock.send(checkRes[1])
                         #tcpAppAgentSock.send(checkRes[2])
-                if checkRes[0] == AT_OUTCALL:
+                elif checkRes[0] == AT_OUTCALL:
                     if uid[0] != 1001 and uid[0] != 10002:
                         print 'Make phone call in background to ', checkRes[1]
                         tcpAppAgentSock.send(struct.pack('!i', WARN_CALL))
@@ -87,6 +92,11 @@ def main():
     klogRecFile.close()
     tcpKlogAgentSock.close()
     tcpSerSock.close()
+def isPremium(num):
+    #for p in PremiumPrefix:
+    if num.startswith(PremiumPrefix):
+        return True
+    return False
 #-------------------------------------------------------------------------------
 # Check the signatures of sms and call related signatures
 #-------------------------------------------------------------------------------

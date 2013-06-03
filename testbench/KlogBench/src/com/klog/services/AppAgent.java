@@ -51,6 +51,7 @@ public class AppAgent extends Service {
 	
 	private static final int WARN_SMS = 1;
 	private static final int WARN_CALL = 2;
+	private static final int WARN_PREMIUM_SMS = 3;
 	
 	TimerTask pollRunningTask;
 	Timer pollRunningTimer;
@@ -195,6 +196,7 @@ public class AppAgent extends Service {
 						Log.d(LOG_TAG, "Send back UID " + uid);
 						break;
 					case WARN_SMS:
+					case WARN_PREMIUM_SMS:
 						Log.d(LOG_TAG, "Sending SMS in background");
 						sockIStream.read(msgBuf);
 						
@@ -202,7 +204,8 @@ public class AppAgent extends Service {
 /*						sockIStream.read(msgBuf);
 						msg = msgBuf.toString();*/
 						Log.d(LOG_TAG, "To "+dst_addr + "|"+msgBuf[0] +msgBuf[1]);
-						notifyLogEvent("Warning: SMS", "To "+dst_addr);
+						String title = (reqCode == WARN_PREMIUM_SMS) ? "Warning: Premium SMS" : "Warning: SMS";
+						notifyLogEvent(title, "To "+dst_addr);
 						break;
 					case WARN_CALL:
 						Log.d(LOG_TAG, "Calling in background");

@@ -119,8 +119,10 @@ int klogagent_main(int argc, char* argv[])
         exit(-1);
     }
     //*/
+    /*
     if(daemon(0,0) == -1)
         err(1, NULL);
+    //*/
     /* Wait for command from the servier */
     char cmdBuf[64];
     int rc;

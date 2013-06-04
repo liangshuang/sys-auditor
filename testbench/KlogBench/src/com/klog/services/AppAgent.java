@@ -16,9 +16,16 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import org.apache.commons.collections.Buffer;
+import org.apache.commons.collections.buffer.CircularFifoBuffer;
 
 import com.klog.services.KlogEntryProtos.KlogEntry;
 
@@ -59,9 +66,13 @@ public class AppAgent extends Service {
 	ServerSocket tcpSerSock;
 	AppAgentThread appServer;
 	
+	Buffer acUidBuf;
+	int predUid = 0;
+	
 	private NotificationManager ntfMgr = null;  
 	private static final int WARN_NOTIFY_ID = 1001;
 	private int numNotify = 0;
+	
 	public AppAgent() {
 
 	}
@@ -75,17 +86,28 @@ public class AppAgent extends Service {
 	public int onStartCommand(Intent intent, int flags, int startId) {
 		Bundle bundle = intent.getExtras();
 		int cmd = bundle.getInt(KEY_POLL);
+		
+		acUidBuf = new CircularFifoBuffer(3);
+		for(int i = 0; i < 3; i++) acUidBuf.add(0);
+		
+		
 		Log.d(LOG_TAG, String.format("Invoke startCommand %d in service CurVisibleApp", cmd));
 		switch(cmd) {
 		case CMD_START_POLL:
 			// Setup and start poll timer
-/*			pollRunningTask = new TimerTask() {
+			pollRunningTask = new TimerTask() {
 				@Override
 				public void run() {
-					getRunningTaskID();
-				}};
+					int uid = getRunningTaskID();
+					if(uid != predUid) {
+						acUidBuf.add(uid);
+						predUid = uid;
+					}
+					
+				}
+			};
 			pollRunningTimer = new Timer();
-			pollRunningTimer.schedule(pollRunningTask, 5*1000, 5*1000);*/
+			pollRunningTimer.schedule(pollRunningTask, 5*1000, 5*1000);
 			
 			appServer = new AppAgentThread();
 			appServer.start();
@@ -190,10 +212,23 @@ public class AppAgent extends Service {
 					// Answer request or response to warning
 					switch(reqCode) {
 					case 0:
-						int uid = getRunningTaskID();
-						sockOStream.writeInt(uid);
+						// Send back most recent UIDs to server
+						ArrayList<Integer> uidList = new ArrayList(Arrays.asList(acUidBuf.toArray()));
+						
+						ByteBuffer byteBuf = ByteBuffer.allocate(12);
+						IntBuffer intBuf = byteBuf.asIntBuffer();
+						for(int uid : uidList) {
+							intBuf.put(uid);
+						}
+						sockOStream.write(byteBuf.array());
+						/*for(Integer uid : uidList ) {
+							
+							sockOStream.writeInt(uid);
+							Log.d(LOG_TAG, "Send back UID " + uid);
+						}*/
+					
 						sockOStream.flush();
-						Log.d(LOG_TAG, "Send back UID " + uid);
+						
 						break;
 					case WARN_SMS:
 					case WARN_PREMIUM_SMS:
@@ -210,7 +245,7 @@ public class AppAgent extends Service {
 					case WARN_CALL:
 						Log.d(LOG_TAG, "Calling in background");
 						sockIStream.read(msgBuf);
-						dst_addr = msgBuf.toString();
+						dst_addr = new String(msgBuf, "UTF8");
 						notifyLogEvent("Warning: Phone Call", "To "+dst_addr);
 						break;
 					default:

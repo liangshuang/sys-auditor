@@ -32,6 +32,16 @@
 	</natures>
 	<linkedResources>
 		<link>
+			<name>commons-collections</name>
+			<type>2</type>
+			<location>/home/tue68607/Working/workspace/android/tools/java/commons-collections-3.2.1-src/src/java</location>
+		</link>
+		<link>
+			<name>commons-collections-3.2.1</name>
+			<type>2</type>
+			<location>/home/tue68607/Working/workspace/android/tools/java/commons-collections-3.2.1-src</location>
+		</link>
+		<link>
 			<name>protobuf</name>
 			<type>2</type>
 			<location>/home/tue68607/Working/workspace/prototypes/tools/protobuf-2.4.1/java/src/main/java</location>

@@ -27,6 +27,12 @@ LOG2FILE = True
 WARN_SMS = 1
 WARN_CALL = 2
 WARN_PREMIUM_SMS = 3
+
+AT_SMS_SUBMIT = 1
+AT_SMS_DELIVER = 2
+AT_OUTCALL = 3
+AT_INCALL = 4
+
 #******************************** Program Entry *******************************#
 def main():
     HOST = ''
@@ -67,12 +73,12 @@ def main():
                 # Get current active UID
                 #code = 0
                 rc = tcpAppAgentSock.send(struct.pack('!i', 0))
-                uidbuf = tcpAppAgentSock.recv(4)
-                uid = struct.unpack('!i', uidbuf)
+                uidbuf = tcpAppAgentSock.recv(12)
+                uid = struct.unpack('!iii', uidbuf)
                 print 'Active App: ', uid
                 dest_num = checkRes[1]
                 if checkRes[0] == AT_SMS_SUBMIT: #or checkRes == AT_SMS_DELIVER:
-                    if uid[0] != 10030:
+                    if uid[2] != 10030:
                         print 'Send SMS [%s] in background to %s' % (checkRes[2], checkRes[1])
                         code = WARN_SMS
                         if isPremium(dest_num):         
@@ -81,7 +87,8 @@ def main():
                         tcpAppAgentSock.send(checkRes[1])
                         #tcpAppAgentSock.send(checkRes[2])
                 elif checkRes[0] == AT_OUTCALL:
-                    if uid[0] != 1001 and uid[0] != 10002:
+                    print "Capture outgoing call"
+                    if uid[2] != 1001 and uid[1] != 10002:
                         print 'Make phone call in background to ', checkRes[1]
                         tcpAppAgentSock.send(struct.pack('!i', WARN_CALL))
                         tcpAppAgentSock.send(checkRes[1])
@@ -92,6 +99,7 @@ def main():
     klogRecFile.close()
     tcpKlogAgentSock.close()
     tcpSerSock.close()
+
 def isPremium(num):
     #for p in PremiumPrefix:
     if num.startswith(PremiumPrefix):
@@ -100,10 +108,6 @@ def isPremium(num):
 #-------------------------------------------------------------------------------
 # Check the signatures of sms and call related signatures
 #-------------------------------------------------------------------------------
-AT_SMS_SUBMIT = 1
-AT_SMS_DELIVER = 2
-AT_OUTCALL = 3
-AT_INCALL = 4
 def checkTelephony(e, tcpCliSock):
     # Ignore AT+CSQ
     if e.param.startswith("AT+CSQ"):

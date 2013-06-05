@@ -212,6 +212,7 @@ public class AppAgent extends Service {
 					// Answer request or response to warning
 					switch(reqCode) {
 					case 0:
+						Log.d(LOG_TAG, "Request from server for active uid");
 						// Send back most recent UIDs to server
 						ArrayList<Integer> uidList = new ArrayList(Arrays.asList(acUidBuf.toArray()));
 						

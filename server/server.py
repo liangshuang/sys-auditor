@@ -72,8 +72,10 @@ def main():
             if checkRes:
                 # Get current active UID
                 #code = 0
+                print 'send out request to agent'
                 rc = tcpAppAgentSock.send(struct.pack('!i', 0))
                 uidbuf = tcpAppAgentSock.recv(12)
+                print 'Get response 12 bytes'
                 uid = struct.unpack('!iii', uidbuf)
                 print 'Active App: ', uid
                 dest_num = checkRes[1]

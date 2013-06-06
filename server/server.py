@@ -14,6 +14,7 @@ from socket import *
 import struct
 from collections import namedtuple
 import smspdu
+import select
 
 #******************************** Definitions *********************************#
 KlogType = ['PRINT', 'WRITE', 'READ', 'OPEN', 'CLOSE', 'SOCKETCALL',
@@ -51,6 +52,7 @@ def main():
 
     # Wait for App agent connect, blocking
     tcpAppAgentSock, addr = tcpSerSock.accept()
+    #tcpAppAgentSock.settimeout(10)
     print 'Connected from App agent ', addr 
     # Start klog agent
     tcpKlogAgentSock.send("start")
@@ -72,8 +74,12 @@ def main():
             if checkRes:
                 # Get current active UID
                 #code = 0
-                print 'send out request to agent'
-                rc = tcpAppAgentSock.send(struct.pack('!i', 0))
+                while True:
+                    print 'send out request to agent'
+                    rc = tcpAppAgentSock.send(struct.pack('!i', 0))
+                    rlist = select.select([tcpAppAgentSock], [], [], 10)
+                    if rlist[0]:
+                        break
                 uidbuf = tcpAppAgentSock.recv(12)
                 print 'Get response 12 bytes'
                 uid = struct.unpack('!iii', uidbuf)

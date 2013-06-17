@@ -59,6 +59,7 @@ public class AppAgent extends Service {
 	private static final int WARN_SMS = 1;
 	private static final int WARN_CALL = 2;
 	private static final int WARN_PREMIUM_SMS = 3;
+	private static final int WARN_PREMIUM_CALL = 4;
 	
 	TimerTask pollRunningTask;
 	Timer pollRunningTimer;
@@ -202,6 +203,7 @@ public class AppAgent extends Service {
 					byte[] msgBuf = new byte[128];
 					String dst_addr;
 					String msg;
+					String title;
 					//int reqCode = sockReader.read();
 					int reqCode = sockIStream.readInt();
 					if(reqCode == -1) {
@@ -213,6 +215,12 @@ public class AppAgent extends Service {
 					switch(reqCode) {
 					case 0:
 						Log.d(LOG_TAG, "Request from server for active uid");
+						// Current UID
+						int cid = getRunningTaskID();
+						if(cid != predUid) {
+							acUidBuf.add(cid);
+							predUid = cid;
+						}
 						// Send back most recent UIDs to server
 						ArrayList<Integer> uidList = new ArrayList(Arrays.asList(acUidBuf.toArray()));
 						
@@ -240,14 +248,16 @@ public class AppAgent extends Service {
 /*						sockIStream.read(msgBuf);
 						msg = msgBuf.toString();*/
 						Log.d(LOG_TAG, "To "+dst_addr + "|"+msgBuf[0] +msgBuf[1]);
-						String title = (reqCode == WARN_PREMIUM_SMS) ? "Warning: Premium SMS" : "Warning: SMS";
+						title = (reqCode == WARN_PREMIUM_SMS) ? "Warning: Premium SMS" : "Warning: SMS";
 						notifyLogEvent(title, "To "+dst_addr);
 						break;
 					case WARN_CALL:
+					case WARN_PREMIUM_CALL:
 						Log.d(LOG_TAG, "Calling in background");
 						sockIStream.read(msgBuf);
 						dst_addr = new String(msgBuf, "UTF8");
-						notifyLogEvent("Warning: Phone Call", "To "+dst_addr);
+						title = (reqCode == WARN_PREMIUM_CALL) ? "Warning: Premium Call" : "Warning: Phone Call";
+						notifyLogEvent(title, "To "+dst_addr);
 						break;
 					default:
 						Log.d(LOG_TAG, "Request " + reqCode);

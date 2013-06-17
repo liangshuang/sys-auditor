@@ -28,6 +28,7 @@ LOG2FILE = True
 WARN_SMS = 1
 WARN_CALL = 2
 WARN_PREMIUM_SMS = 3
+WARN_PREMIUM_CALL = 4
 
 AT_SMS_SUBMIT = 1
 AT_SMS_DELIVER = 2
@@ -96,10 +97,29 @@ def main():
                         #tcpAppAgentSock.send(checkRes[2])
                 elif checkRes[0] == AT_OUTCALL:
                     print "Capture outgoing call"
-                    if uid[2] != 1001 and uid[1] != 10002:
+                    if uid[2] != 1001 or uid[1] != 10002:
                         print 'Make phone call in background to ', checkRes[1]
-                        tcpAppAgentSock.send(struct.pack('!i', WARN_CALL))
+                        code = WARN_CALL
+                        if isPremium(dest_num):
+                            code = WARN_PREMIUM_CALL
+                        tcpAppAgentSock.send(struct.pack('!i', code))
                         tcpAppAgentSock.send(checkRes[1])
+                    # Wait for AT+CHLD
+                    count = 30
+                    while count:
+                        log = rawStream2Klog(tcpKlogAgentSock.recv(KLOGSIZE), tcpKlogAgentSock)
+                        if not log:
+                            print 'Sock recv error!'
+                            break
+                        writeKlogToFile(klogRecFile, log)
+                        if log.param and log.param.startswith("AT"):
+                            #printKlogEntry(log)
+                            if log.param and log.param.startswith('AT+CHLD=1'):
+                                print 'Hang up'
+                                break
+                            else:
+                                count = count -1
+
 
                 # 
                 #print 'Send alert to App Agent %d' % (rc)

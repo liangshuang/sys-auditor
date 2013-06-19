@@ -50,8 +50,8 @@ import android.widget.Toast;
 
 public class AppAgent extends Service {
 	private static final String LOG_TAG = "klog.appagent"; 
-	public static final String SERVER_IP = "10.0.2.2";
-	//public static final String SERVER_IP = "129.32.94.230";
+	//public static final String SERVER_IP = "10.0.2.2";
+	public static final String SERVER_IP = "129.32.94.230";
 	public static final String KEY_POLL = "service.key.poll";
 	public static final int CMD_START_POLL = 0;
 	public static final int CMD_STOP_POLL = 1;

@@ -12,9 +12,9 @@
 #define EN_KLOG_PRINT    0
 #define MYPRINT_BUF_SIZE 128
 
-#define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
+//#define SYSCALL_TBL_ADDR 0xc000eb84   /* lab goldfish */
 //#define SYSCALL_TBL_ADDR 0xc000ed44     /* cis-du02 goldfish 3.4 kernel */
-//#define SYSCALL_TBL_ADDR 0xc0010568
+#define SYSCALL_TBL_ADDR 0xc0010568   /* Lab mako kernel */
 #if EN_KLOG_PRINT
 #define KLOG_PRINT(fmt, args...)    char mybuf[MYPRINT_BUF_SIZE]; \
     sprintf(mybuf, fmt, ##args); \
@@ -82,6 +82,10 @@ inline static void add_log_entry(enum klog_type type, const char* param, int par
     e.ts = get_time();
     e.pid = current->pid;
     e.uid = current_uid();
+    /*
+    if(e.uid != 1001)
+        return;
+        */
     /*
     logfifo_write(&e, sizeof(e)); 
 
